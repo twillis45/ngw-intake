@@ -161,6 +161,17 @@
   .note { font-size: 13px; color: var(--fg-2); flex: 1 1 100%; }
 
   /* ── Action block ─────────────────────────────────────────────────── */
+  .synopsis .label { display: block; margin-bottom: 12px; }
+  .syn-q + .syn-q { margin-top: 16px; }
+  .syn-ask { font-size: 13px; font-weight: 600; color: var(--fg); margin-bottom: 4px; }
+  .syn-q ul { list-style: none; margin: 0; padding: 0; }
+  .syn-q li { position: relative; padding-left: 16px; font-size: 13px; color: var(--fg-2);
+              margin-bottom: 4px; }
+  .syn-q li::before { content: ""; position: absolute; left: 0; top: .6em;
+                      width: 8px; height: 1px; background: var(--steel); }
+  .syn-note { font-size: 13px; color: var(--muted); margin: 16px 0 0;
+              padding-top: 12px; border-top: 1px solid var(--border); }
+
   .actions { margin-top: 24px; display: flex; flex-direction: column; gap: 8px; }
   .actions .send { width: 100%; }
   .tallynote, .sign { font-size: 13px; color: var(--fg-2); margin: 0; }
@@ -238,6 +249,14 @@
     <div id="questions"></div>
 
     <div class="actions">
+      <section class="card synopsis" id="synopsis" hidden>
+        <span class="label">What I heard back</span>
+        <div id="synopsis-body"></div>
+        <p class="syn-note">These are your own sentences, lifted straight out of the
+          recordings on this page. Nothing was added, reworded, or guessed at — if a
+          line reads oddly, that’s the dictation, not me.</p>
+      </section>
+
       <button type="button" id="sendall" class="send" hidden>Text them to Todd</button>
       <div class="err" id="sendall-err" hidden></div>
       <p class="tallynote" id="tally" aria-live="polite">Nothing recorded on this page yet.</p>
@@ -590,17 +609,29 @@
     r.continuous = true;
     r.interimResults = true;
     r.lang = navigator.language || "en-US";
-    var settled = "";
+    // ev.results is CUMULATIVE for the current recogniser session, and
+    // resultIndex only points at the first entry that changed. Appending the
+    // slice from resultIndex onto a running string re-adds every final the
+    // event still carries, so one sentence lands three, six, twelve times —
+    // which is what he would have read back on his own phone. The current
+    // session is therefore rebuilt from ev.results each time, never appended.
+    //
+    // A session still has to be folded away on end, because the page restarts
+    // recognition through pauses and a restart resets ev.results to empty.
+    var committed = "", session = "";
+    function fold() { committed += session; session = ""; }
+    var tidy = function (t) { return t.replace(/\s+/g, " ").trim(); };
     r.onresult = function (ev) {
-      var interim = "";
-      for (var i = ev.resultIndex; i < ev.results.length; i++) {
+      var fin = "", interim = "";
+      for (var i = 0; i < ev.results.length; i++) {
         var chunk = ev.results[i][0].transcript;
-        if (ev.results[i].isFinal) settled += chunk; else interim += chunk;
+        if (ev.results[i].isFinal) fin += chunk; else interim += chunk;
       }
-      onText((settled + interim).trim(), settled.trim());
+      session = fin;
+      onText(tidy(committed + session + interim), tidy(committed + session));
     };
     // Recognition stops itself on a long pause; restart while the recording runs.
-    r.onend = function () { if (r.__wanted) { try { r.start(); } catch (e) {} } };
+    r.onend = function () { fold(); if (r.__wanted) { try { r.start(); } catch (e) {} } };
     r.onerror = function () {};
     r.__wanted = true;
     try { r.start(); } catch (e) { return null; }
@@ -608,7 +639,8 @@
       stop: function () {
         r.__wanted = false;
         try { r.stop(); } catch (e) {}
-        return settled.trim();
+        fold();                      // onend may not have landed yet
+        return tidy(committed);
       }
     };
   }
@@ -922,6 +954,63 @@
 
   document.getElementById("sendall").addEventListener("click", sendAll);
 
+  // ---- synopsis -----------------------------------------------------------
+  // Extractive, never generative. It selects whole sentences he actually said
+  // and prints them verbatim. There is no model here and no paraphrase, so
+  // there is nothing that can invent a fact about the FAA — which is the only
+  // kind of summary worth putting in front of the person who said it.
+  var CUES = /\b(because|has to|have to|had to|always|never|usually|depends|comes down to|the problem|unless|can\u2019t|can't|cannot|won\u2019t|won't|need to|needs to|ends up|every time|sometimes|no matter|supposed to|required|ends up being)\b/gi;
+
+  function sentencesOf(t) {
+    var m = String(t).replace(/\s+/g, " ").match(/[^.!?]+[.!?]*/g) || [];
+    return m.map(function (x) { return x.trim(); })
+            .filter(function (x) { return x.split(" ").length >= 6; });
+  }
+  function pickLines(t, n) {
+    var ss = sentencesOf(t);
+    if (!ss.length) {
+      var whole = String(t).replace(/\s+/g, " ").trim();
+      return whole ? [whole] : [];
+    }
+    var scored = ss.map(function (x, i) {
+      var cues = (x.match(CUES) || []).length;
+      var w = x.split(" ").length;
+      return { s: x, i: i, score: cues * 2 + (w >= 10 && w <= 40 ? 1 : 0) + (/\d/.test(x) ? 1 : 0) };
+    });
+    scored.sort(function (a, b) { return b.score - a.score || a.i - b.i; });
+    return scored.slice(0, n)
+                 .sort(function (a, b) { return a.i - b.i; })
+                 .map(function (x) { return x.s; });
+  }
+
+  function synopsis() {
+    var box = document.getElementById("synopsis");
+    var host = document.getElementById("synopsis-body");
+    while (host.firstChild) host.removeChild(host.firstChild);
+    var any = false;
+    Object.keys(cards).forEach(function (id) {
+      var c = cards[id];
+      var said = c.clips.map(function (r) { return r.clip.said || ""; }).join(" ").trim();
+      if (!said) return;
+      var lines = pickLines(said, 2);
+      if (!lines.length) return;
+      any = true;
+      var blk = el("div", "syn-q");
+      var ask = el("div", "syn-ask");
+      ask.textContent = c.q.ask;              // textContent: his words are data
+      blk.appendChild(ask);
+      var ul = document.createElement("ul");
+      lines.forEach(function (ln) {
+        var li = document.createElement("li");
+        li.textContent = ln;
+        ul.appendChild(li);
+      });
+      blk.appendChild(ul);
+      host.appendChild(blk);
+    });
+    box.hidden = !any;
+  }
+
   // ---- tally --------------------------------------------------------------
   function tally() {
     var ids = Object.keys(cards);
@@ -935,6 +1024,7 @@
       total === 0 ? "Nothing recorded on this page yet."
       : pending === 0 ? "Everything recorded here has been handed off."
       : pending + (pending === 1 ? " recording" : " recordings") + " still to send.";
+    synopsis();
     var sa = document.getElementById("sendall");
     sa.hidden = pending === 0;
     sa.textContent = pending === 1 ? "Text it to Todd" : "Text all " + pending + " to Todd";

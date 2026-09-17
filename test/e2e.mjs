@@ -356,6 +356,73 @@ ok((await filed.count()) === 1 && /facility manager signs off/.test(await filed.
    'the text is filed with its recording, with nothing copied or pasted');
 await heard.close();
 
+// Dictation hands back a CUMULATIVE result list per session, and resultIndex
+// only marks the first entry that changed. Appending the slice from
+// resultIndex re-added every final the event still carried, so one sentence
+// filed three, six, twelve times. A restart through a pause then has to keep
+// the earlier session's text without replaying it. Both halves are asserted.
+console.log('\n=== the transcript is not duplicated across pauses ===');
+const dup = await browser.newContext({ permissions: ['microphone'],
+  viewport: { width: 390, height: 844 } });
+await dup.addInitScript(() => {
+  const S = [{ at: 200, final: 'Alpha one. ' }, { at: 600, end: true },
+             { at: 1000, final: 'Bravo two. ' }, { at: 1400, final: 'Charlie three.' }];
+  function F() { this._t = []; this._f = []; this._cur = 0; }
+  F.prototype.start = function () {
+    this._f = [];                                  // a session starts empty, per spec
+    const base = this._cur;
+    S.forEach((step, i) => {
+      if (i < base) return;
+      this._t.push(setTimeout(() => {
+        this._cur = i + 1;
+        if (step.end) { this._t.forEach(clearTimeout); this._t = []; this.onend && this.onend(); return; }
+        this._f.push(step.final);
+        this.onresult && this.onresult({ resultIndex: 0,
+          results: this._f.map((t) => ({ 0: { transcript: t }, isFinal: true, length: 1 })) });
+      }, step.at));
+    });
+  };
+  F.prototype.stop = function () { this._t.forEach(clearTimeout); this.onend && this.onend(); };
+  window.SpeechRecognition = F; window.webkitSpeechRecognition = F;
+});
+const dupPage = await dup.newPage();
+await dupPage.goto('http://localhost:8731/', { waitUntil: 'load' });
+await dupPage.locator('#mic-q1').click();
+await dupPage.waitForTimeout(2000);
+await dupPage.locator('#mic-q1').click();
+await dupPage.waitForTimeout(1000);
+const filedText = (await dupPage.locator('.clip .said').first().textContent()).trim();
+ok(filedText === 'Alpha one. Bravo two. Charlie three.',
+   `each sentence lands exactly once ("${filedText}")`);
+ok((filedText.match(/Alpha/g) || []).length === 1, 'the pre-pause sentence is not repeated');
+ok(/Bravo two\. Charlie three\./.test(filedText), 'and the post-restart text is kept in order');
+
+// The synopsis exists so he can see he was heard, without copying anything.
+// It is extractive: every line must be a substring of what he actually said.
+console.log('\n=== the synopsis is his own words, never a paraphrase ===');
+ok(await dupPage.locator('#synopsis').isVisible(), 'a synopsis appears once a transcript exists');
+const synLines = await dupPage.locator('.syn-q li').allTextContents();
+ok(synLines.length > 0, `it has lines (${synLines.length})`);
+ok(await dupPage.evaluate(() => {
+     const norm = (x) => x.replace(/\s+/g, ' ').trim();
+     const said = norm([...document.querySelectorAll('.clip .said')].map((e) => e.textContent).join(' '));
+     return [...document.querySelectorAll('.syn-q li')].every((li) => said.includes(norm(li.textContent)));
+   }), 'every line is verbatim from the transcript — nothing generated');
+ok((await dupPage.locator('#tx').count()) === 0 && (await dupPage.locator('textarea').count()) === 0,
+   'and he pasted nothing to get it');
+ok(/your own sentences/.test(await dupPage.locator('.syn-note').textContent()),
+   'the page says plainly where the lines came from');
+await dup.close();
+
+// No transcripts, no synopsis — an empty panel would be worse than none.
+const nosyn = await browser.newContext({ permissions: ['microphone'],
+  viewport: { width: 390, height: 844 } });
+const np = await nosyn.newPage();
+await np.goto('http://localhost:8731/', { waitUntil: 'load' });
+await np.waitForTimeout(400);
+ok(await np.locator('#synopsis').isHidden(), 'no synopsis panel before there is anything in it');
+await nosyn.close();
+
 ok((await page.locator('#tx').count()) === 0, 'the paste box is gone');
 ok((await page.locator('#checkbtn').count()) === 0, 'the summary button is gone');
 const pageText = await page.locator('body').innerText();
