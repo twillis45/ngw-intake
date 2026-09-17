@@ -187,6 +187,29 @@ const taps = await page.evaluate(() => [...document.querySelectorAll('button')]
   .filter((b) => b.offsetParent !== null && b.getBoundingClientRect().height < 44).length);
 check('3.4', 'Touch targets minimum 44px', taps === 0, `${taps} under 44px`);
 
+// The sms links are the escape hatch — the thing he reaches for when something
+// has gone wrong — and as bare inline text they measured 89x15px.
+const smsTaps = await page.evaluate(() => [...document.querySelectorAll('a[href^="sms:"]')]
+  .map((a) => { const r = a.getBoundingClientRect(); return Math.round(r.height); }));
+check('3.4b', 'The contact links are tappable, not hairline text',
+      smsTaps.length === 2 && smsTaps.every((h) => h >= 44), smsTaps.join(', ') + 'px tall');
+// Growing a target must not silently steal taps from the text beside it.
+const steal = await page.evaluate(() => {
+  window.scrollTo(0, document.body.scrollHeight);
+  const link = document.querySelector('.contact a').getBoundingClientRect();
+  const sign = document.querySelector('.sign').getBoundingClientRect();
+  // Sample directly ABOVE the link, inside the paragraph above it. Sampling
+  // anywhere else on that line cannot catch this: the link sits at the right
+  // end of its own line, so a probe on the left is never under the padded box.
+  const x = link.left + link.width / 2;
+  const el = document.elementFromPoint(x, sign.bottom - 4);
+  if (!el) return 'nothing at the probe point';
+  return el.closest('.sign') ? 'ok'
+       : 'the link reaches ' + Math.round(sign.bottom - link.top) + 'px into .sign';
+});
+check('3.4c', 'The enlarged target steals no taps from neighbouring text',
+      steal === 'ok', steal);
+
 const aboveFold = await page.evaluate(() => {
   const b = document.querySelector('.mic');
   return b ? b.getBoundingClientRect().top < window.innerHeight : false;
