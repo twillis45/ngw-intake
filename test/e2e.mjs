@@ -47,9 +47,9 @@ ok((await page.locator('article.q').count()) === 13, '13 question cards');
 ok((await page.locator('#tally').textContent()).trim() === '0 of 13 answered', 'tally at zero');
 ok(!(await page.locator('#sendall').isVisible()), 'Send all hidden');
 ok((await page.locator('article.q audio:visible').count()) === 0, 'no dead audio players');
-const badges = await page.locator('.qnum').allTextContents();
-ok(badges.join(',') === Array.from({ length: 13 }, (_, i) => 'Q' + (i + 1)).join(','),
-   'badges Q1..Q13 in order');
+const nums = await page.locator('.qnum').allTextContents();
+ok(nums.join(',') === Array.from({ length: 13 }, (_, i) => String(i + 1)).join(','),
+   'margin numbers run 1..13 in order');
 
 console.log('\n=== copy ===');
 const how = await page.locator('.how').textContent();
@@ -77,11 +77,35 @@ ok(await page.locator('button').first().evaluate((b) => getComputedStyle(b).touc
    'buttons set touch-action: manipulation');
 ok(await page.locator('#mic-q1').evaluate((b) => parseFloat(getComputedStyle(b).minHeight) >= 44),
    'tap targets at least 44px');
-ok((await page.locator('[class*="rail"], .strip[style*="border-left"]').count()) === 0 &&
-   await page.locator('.how').evaluate((e) => getComputedStyle(e).borderLeftWidth === '0px'),
-   'the accent rail is gone from blocks that already carry a fill');
-ok(await card(0).evaluate((e) => getComputedStyle(e).borderLeftWidth !== '0px'),
-   'the rail survives where it means something (the top three)');
+// The page is a document, not a stack of cards: nothing but the transcript
+// quote block and the one warning may draw a box or a fill.
+const boxes = await page.evaluate(() => {
+  const sel = 'header, .how, article.q, .footer-bar, .check';
+  return [...document.querySelectorAll(sel)].filter((e) => {
+    const c = getComputedStyle(e);
+    const bg = c.backgroundColor;
+    const filled = bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent';
+    const boxed = ['Top', 'Right', 'Bottom', 'Left']
+      .filter((s) => parseFloat(c['border' + s + 'Width']) > 0).length >= 2;
+    return filled || boxed;
+  }).length;
+});
+ok(boxes === 0, `no panels, cards or tinted blocks (${boxes} found)`);
+const accent = await page.evaluate(() => {
+  const probe = document.createElement('span');
+  probe.style.color = 'var(--accent)';
+  document.body.appendChild(probe);
+  const acc = getComputedStyle(probe).color;
+  probe.remove();
+  const uses = [...document.querySelectorAll('.wrap *')]
+    .filter((e) => getComputedStyle(e).color === acc && e.offsetParent !== null);
+  return { acc, count: uses.length, onBig: uses.filter((e) => e.closest('.q.big')).length };
+});
+ok(accent.count > 0, `the accent is actually applied somewhere (${accent.acc})`);
+ok(accent.count === 3 && accent.onBig === 3,
+   `accent used exactly on the first three questions and nowhere else (${accent.count} uses, ${accent.onBig} on .big)`);
+ok(await card(0).evaluate((e) => getComputedStyle(e).borderTopWidth === '1px'),
+   'entries are separated by a hairline, not boxed');
 
 console.log('\n=== recording: the state machine ===');
 await page.locator('#mic-q1').click();
@@ -201,22 +225,32 @@ await wp.goto('http://localhost:8731/', { waitUntil: 'load' });
 await wp.waitForTimeout(400);
 const L = await wp.evaluate(() => {
   const q = document.querySelector('article.q');
-  const ask = q.querySelector('.qhead').getBoundingClientRect();
+  const ask = q.querySelector('.ask').getBoundingClientRect();
   const btn = q.querySelector('.row').getBoundingClientRect();
   const why = q.querySelector('.why');
   const wrap = document.querySelector('.wrap').getBoundingClientRect();
   return {
-    besideNotBelow: btn.left > ask.right - 1 && btn.top < ask.bottom + 8,
+    hangingNumber: q.querySelector('.qnum').getBoundingClientRect().right <= ask.left + 1,
     hScroll: document.documentElement.scrollWidth > innerWidth + 1,
-    whyCapped: getComputedStyle(why).maxWidth !== 'none',
+    whyCh: (() => {
+      const probe = document.createElement('span');
+      probe.textContent = 'x'.repeat(100);
+      probe.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;font:' +
+        getComputedStyle(why).font;
+      document.body.appendChild(probe);
+      const per = probe.getBoundingClientRect().width / 100;
+      probe.remove();
+      return Math.round(why.getBoundingClientRect().width / per);
+    })(),
     column: Math.round(wrap.width),
+    gap: Math.round(ask.left - q.getBoundingClientRect().left),
     bodyPx: parseFloat(getComputedStyle(document.body).fontSize),
   };
 });
-ok(L.besideNotBelow, 'the control sits beside the question, not stranded under it');
+ok(L.hangingNumber, 'the number hangs in the margin beside the question');
 ok(!L.hScroll, 'no horizontal scroll at 1920px');
-ok(L.whyCapped, 'body text measure is capped rather than running the full column');
-ok(L.column >= 700 && L.column <= 760, `column widens for desktop (${L.column}px)`);
+ok(L.whyCh >= 45 && L.whyCh <= 72, `line length stays readable on desktop (${L.whyCh}ch)`);
+ok(L.column >= 560 && L.column <= 660, `measure stays readable on desktop (${L.column}px)`);
 ok(L.bodyPx >= 16, `type scales up for desktop (${L.bodyPx}px)`);
 await wp.screenshot({ path: '/tmp/intake-desktop.png' });
 await wide.close();

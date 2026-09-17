@@ -3,195 +3,157 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#EFF1F4" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#12181E" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#FBFBF9" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#14171A" media="(prefers-color-scheme: dark)">
 <title>Outreach Voice Brief</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;450;500;600&display=swap">
 <style>
   :root {
-    --ground:#EFF1F4; --panel:#FBFCFD; --panel-done:#F1F3F5;
-    --ink:#16202B; --ink-soft:#4A5766; --ink-faint:#7C8794;
-    --rule-soft:#DFE3E8; --amber:#B37400; --amber-fill:#FDF4E0;
-    --cleared:#1B6B50; --cleared-fill:#E7F2ED;
-    --live:#A8323F; --live-fill:#F8E9EA;
-    --strip:#16202B; --strip-ink:#F2F4F6; --strip-meta:#9FAAB6;
+    --paper:#FBFBF9; --ink:#1A1D21; --ink-soft:#5A6068; --ink-faint:#8B9198;
+    --rule:#E2E1DC; --rule-hard:#1A1D21;
+    --accent:#9A5B00; --live:#9E2A33; --good:#1B5E44;
     color-scheme: light dark;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --ground:#12181E; --panel:#1A222B; --panel-done:#161D24;
-      --ink:#E8ECF0; --ink-soft:#A5B0BC; --ink-faint:#7A8693;
-      --rule-soft:#26303A; --amber:#E3A63A; --amber-fill:#2A2415;
-      --cleared:#5FBF9A; --cleared-fill:#14251F;
-      --live:#E8828E; --live-fill:#2A181B;
-      --strip:#0A0E12; --strip-ink:#E8ECF0; --strip-meta:#77828F;
+      --paper:#14171A; --ink:#E9E8E3; --ink-soft:#A7ACB2; --ink-faint:#787D84;
+      --rule:#2A2E33; --rule-hard:#E9E8E3;
+      --accent:#E0A64A; --live:#E8828E; --good:#63C39C;
     }
   }
   :root[data-theme="dark"] {
-    --ground:#12181E; --panel:#1A222B; --panel-done:#161D24;
-    --ink:#E8ECF0; --ink-soft:#A5B0BC; --ink-faint:#7A8693;
-    --rule-soft:#26303A; --amber:#E3A63A; --amber-fill:#2A2415;
-    --cleared:#5FBF9A; --cleared-fill:#14251F;
-    --live:#E8828E; --live-fill:#2A181B;
-    --strip:#0A0E12; --strip-ink:#E8ECF0; --strip-meta:#77828F;
+    --paper:#14171A; --ink:#E9E8E3; --ink-soft:#A7ACB2; --ink-faint:#787D84;
+    --rule:#2A2E33; --rule-hard:#E9E8E3;
+    --accent:#E0A64A; --live:#E8828E; --good:#63C39C;
   }
 
   * { box-sizing: border-box; }
   html { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
   body {
-    margin: 0; background: var(--ground); color: var(--ink);
+    margin: 0; background: var(--paper); color: var(--ink);
     font-family: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
-    font-size: 15px; line-height: 1.45;
-    -webkit-tap-highlight-color: rgba(179,116,0,.18);
+    font-size: 16px; line-height: 1.5; font-weight: 400;
+    -webkit-tap-highlight-color: rgba(154,91,0,.14);
   }
   [hidden] { display: none !important; }
+  .wrap { max-width: 34rem; margin: 0 auto; padding-inline: 20px; padding-block: 40px 72px; }
 
-  .wrap { max-width: 640px; margin: 0 auto; padding-inline: 16px; padding-block: 24px 56px;
-          display: flex; flex-direction: column; gap: 22px; }
+  /* Title: no bar, no box. Just the largest thing on the page. */
+  header { margin-bottom: 30px; }
+  h1 { font-size: 30px; font-weight: 600; letter-spacing: -.02em; line-height: 1.15;
+       margin: 0 0 9px; text-wrap: balance; }
+  .kicker { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11px;
+            letter-spacing: .14em; text-transform: uppercase; color: var(--ink-faint); }
 
-  /* The rail marks ONE thing: the three questions that matter most. Everywhere
-     else it was decoration on blocks that already carry their own fill. */
-  .strip { background: var(--strip); color: var(--strip-ink);
-           padding: 14px 16px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
-  .strip h1 { font-family: "Barlow Condensed","Arial Narrow",sans-serif; font-weight: 700;
-              font-size: clamp(28px,7.5vw,40px); letter-spacing: .02em; line-height: 1;
-              text-transform: uppercase; margin: 0; text-wrap: balance; }
-  .strip .meta { font-family: "IBM Plex Mono",ui-monospace,monospace; font-size: 11px;
-                 letter-spacing: .12em; text-transform: uppercase; color: var(--strip-meta); margin-left: auto; }
-
-  .how { background: var(--amber-fill); padding: 14px 16px; }
-  .how p { margin: 0; }
-  .how .lead { font-family: "Barlow Condensed","Arial Narrow",sans-serif; font-weight: 700;
-               font-size: clamp(24px,6.5vw,30px); line-height: 1.05; margin: 0 0 11px;
+  /* Instructions are prose, not a panel. */
+  .how { margin-bottom: 0; }
+  .how p { margin: 0 0 12px; }
+  .how p:last-child { margin-bottom: 0; }
+  .how .lead { font-size: 19px; font-weight: 500; line-height: 1.35; margin-bottom: 14px;
                text-wrap: balance; }
-  .how .steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
-  .how .steps li { font-size: 15px; display: flex; gap: 9px; align-items: baseline; }
-  .how .steps li::before { content: "\2192"; color: var(--amber); font-weight: 700; flex: none; }
-  .how .better { margin-top: 12px; }
-  .how .fine { list-style: none; margin: 12px 0 0; padding: 10px 0 0;
-               border-top: 1px solid rgba(179,116,0,.3);
-               display: flex; flex-direction: column; gap: 6px; }
-  .how .fine li { font-size: 13px; color: var(--ink-soft); line-height: 1.4; }
-  .how .fine b { color: var(--ink); }
+  .how .steps { list-style: none; margin: 0 0 14px; padding: 0; }
+  .how .steps li { position: relative; padding-left: 20px; margin-bottom: 4px; }
+  .how .steps li::before { content: ""; position: absolute; left: 4px; top: .68em;
+                           width: 5px; height: 1px; background: var(--ink-faint); }
+  .how .fine { list-style: none; margin: 18px 0 0; padding: 0;
+               font-size: 14px; color: var(--ink-soft); }
+  .how .fine li { margin-bottom: 8px; }
+  .how .fine b, .how .better b { font-weight: 600; color: var(--ink); }
 
-  .warn { background: var(--live-fill); padding: 13px 15px; color: var(--ink); font-size: 14.5px; }
+  .warn { border-left: 2px solid var(--live); padding: 2px 0 2px 14px;
+          margin-bottom: 26px; font-size: 15px; color: var(--ink-soft); }
+  .warn b { color: var(--ink); }
 
-  h2 { font-family: "IBM Plex Mono",ui-monospace,monospace; font-size: 11px; font-weight: 600;
-       letter-spacing: .16em; text-transform: uppercase; color: var(--ink-faint);
-       margin: 0; display: flex; align-items: center; gap: 10px; }
-  h2::after { content: ""; height: 1px; background: var(--rule-soft); flex: 1; }
+  /* Section labels sit in the flow as small caps, not as ruled dividers. */
+  h2 { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11px; font-weight: 500;
+       letter-spacing: .14em; text-transform: uppercase; color: var(--ink-faint);
+       margin: 40px 0 6px; }
+  .group { display: flex; flex-direction: column; }
 
-  .group { display: flex; flex-direction: column; gap: 10px; }
-
-  .q { background: var(--panel); border: 1px solid var(--rule-soft); padding: 14px 15px;
-       display: flex; flex-direction: column; gap: 11px; }
-  .q.big { border-left: 3px solid var(--amber); }
-  .q.has-rec { background: var(--panel-done); }
-  .qhead { display: flex; align-items: baseline; gap: 10px; }
-  .qnum { flex: none; font-family: "IBM Plex Mono",ui-monospace,monospace; font-size: 12px;
-          font-weight: 600; letter-spacing: .06em; color: var(--amber);
-          background: var(--amber-fill); padding: 3px 7px; }
-  .ask { font-size: 16px; font-weight: 500; text-wrap: balance; }
-  .why { font-size: 13.5px; color: var(--ink-soft); }
+  /* A question is a numbered entry in a list, not a card. Hairline between,
+     nothing around. The only emphasis is on the first three. */
+  .q { padding: 18px 0; border-top: 1px solid var(--rule);
+       display: grid; grid-template-columns: 2.1rem 1fr; column-gap: 2px; }
+  .q.big .qnum { color: var(--accent); font-weight: 500; }
+  .q.big .ask { font-weight: 600; }
+  .qnum { grid-column: 1; font-family: "IBM Plex Mono", ui-monospace, monospace;
+          font-size: 14px; color: var(--ink-faint); padding-top: 2px;
+          font-variant-numeric: tabular-nums; }
+  .qbody { grid-column: 2; display: flex; flex-direction: column; gap: 9px; }
+  .ask { font-size: 17px; font-weight: 500; line-height: 1.35; text-wrap: balance; }
+  .why { font-size: 14.5px; color: var(--ink-soft); }
   .why b { font-weight: 600; color: var(--ink); }
 
-  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 
-  button { font: inherit; font-size: 14px; cursor: pointer; border-radius: 2px;
-           border: 1px solid var(--ink-faint); background: transparent; color: var(--ink);
-           padding: 9px 14px; min-height: 44px; touch-action: manipulation;
-           transition: background-color .12s ease, border-color .12s ease; }
-  button:hover { background: var(--amber-fill); border-color: var(--amber); }
-  button:active { background: var(--amber-fill); }
-  button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
-  button[disabled] { opacity: .45; cursor: not-allowed; }
-  button[disabled]:hover { background: transparent; border-color: var(--ink-faint); }
-  .mic { border-color: var(--ink); font-weight: 600; }
-  .mic.live { background: var(--live); border-color: var(--live); color: #fff; }
-  .mic.live:hover { background: var(--live); border-color: var(--live); }
-  .send { background: var(--cleared); border-color: var(--cleared); color: #fff; font-weight: 600; }
-  .send:hover { background: var(--cleared); border-color: var(--cleared); filter: brightness(1.08); }
-  .danger.armed { background: var(--live); border-color: var(--live); color: #fff; font-weight: 600; }
-  .danger.armed:hover { background: var(--live); border-color: var(--live); }
+  /* Controls are quiet until they matter. */
+  button { font: inherit; font-size: 14px; font-weight: 450; cursor: pointer;
+           border: 1px solid var(--rule-hard); background: transparent; color: var(--ink);
+           padding: 8px 13px; min-height: 44px; border-radius: 0;
+           touch-action: manipulation; transition: background-color .12s ease, color .12s ease; }
+  button:hover { background: var(--ink); color: var(--paper); }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button[disabled] { opacity: .35; cursor: not-allowed; }
+  button[disabled]:hover { background: transparent; color: var(--ink); }
+  .mic.live, .mic.live:hover { background: var(--live); border-color: var(--live); color: #fff; }
+  .send { border-color: var(--good); color: var(--good); }
+  .send:hover { background: var(--good); border-color: var(--good); color: #fff; }
+  .danger.armed, .danger.armed:hover { background: var(--live); border-color: var(--live); color: #fff; }
 
-  .time { font-family: "IBM Plex Mono",ui-monospace,monospace; font-size: 15px;
-          font-variant-numeric: tabular-nums; color: var(--ink-soft); }
-  .time.live { color: var(--live); font-weight: 600; }
-  .keepon { font-size: 12.5px; color: var(--live); flex: 1 1 100%; }
+  .time { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 14px;
+          font-variant-numeric: tabular-nums; color: var(--ink-faint); }
+  .time.live { color: var(--live); }
+  .keepon { font-size: 13px; color: var(--live); flex: 1 1 100%; }
 
-  .flag { font-family: "IBM Plex Mono",ui-monospace,monospace; font-size: 10px; font-weight: 600;
-          letter-spacing: .1em; text-transform: uppercase; padding: 3px 7px;
-          color: var(--cleared); background: var(--cleared-fill); }
-  .flag.local { color: var(--amber); background: var(--amber-fill); }
+  .flag { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11px;
+          letter-spacing: .08em; text-transform: uppercase; color: var(--good); }
+  .flag.local { color: var(--accent); }
 
-  .clips { display: flex; flex-direction: column; gap: 10px; }
-  .clip { display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
-          padding-top: 10px; border-top: 1px solid var(--rule-soft); }
-  .clip:first-child { border-top: none; padding-top: 0; }
-  .part { font-family: "IBM Plex Mono",ui-monospace,monospace; font-size: 11px; font-weight: 600;
-          letter-spacing: .12em; text-transform: uppercase; color: var(--ink-faint); }
-  .clip audio { flex: 1 1 100%; width: 100%; min-width: 0; }
+  .clips { display: flex; flex-direction: column; gap: 12px; }
+  .clip { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  .part { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11px;
+          letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint); }
+  .clip audio { flex: 1 1 100%; width: 100%; min-width: 0; height: 34px; }
   audio { width: 100%; min-width: 0; }
 
-  .err  { font-size: 13.5px; color: var(--live); flex: 1 1 100%; }
-  .note { font-size: 13.5px; color: var(--ink-soft); flex: 1 1 100%; }
+  .err  { font-size: 14px; color: var(--live); flex: 1 1 100%; }
+  .note { font-size: 14px; color: var(--ink-soft); flex: 1 1 100%; }
 
-  .footer-bar { border-top: 2px solid var(--ink); padding-top: 12px;
+  .footer-bar { border-top: 1px solid var(--rule-hard); margin-top: 6px; padding-top: 16px;
                 display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
-  .tally { font-family: "IBM Plex Mono",ui-monospace,monospace; font-size: 12px;
-           color: var(--ink-faint); flex: 1 1 auto; }
-  .tallynote { font-size: 12.5px; color: var(--ink-faint); }
+  .tally { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 12px;
+           letter-spacing: .04em; color: var(--ink-faint); flex: 1 1 auto; }
+  .tallynote { font-size: 13.5px; color: var(--ink-faint); margin: 10px 0 0; }
 
-  .check { border-top: 2px solid var(--ink); padding-top: 14px;
-           display: flex; flex-direction: column; gap: 10px; }
-  .check h2 { margin-bottom: 2px; }
-  .check p { margin: 0; font-size: 14px; color: var(--ink-soft); }
-  label.fieldlabel { font-size: 13px; color: var(--ink-faint);
-                     font-family: "IBM Plex Mono",ui-monospace,monospace;
-                     letter-spacing: .08em; text-transform: uppercase; }
-  textarea { width: 100%; min-height: 110px; padding: 11px; font: inherit; font-size: 14px;
-             color: var(--ink); background: var(--panel); border: 1px solid var(--rule-soft);
-             border-radius: 2px; resize: vertical; }
-  textarea:focus-visible { outline: 2px solid var(--amber); outline-offset: 1px; }
-  .verdict { display: flex; flex-direction: column; gap: 7px; }
-  .vrow { display: flex; flex-wrap: wrap; gap: 9px; align-items: baseline; font-size: 14px; }
-  .quotes { flex: 1 1 100%; margin: 4px 0 0; padding-left: 18px;
-            display: flex; flex-direction: column; gap: 4px; }
-  .quotes li { font-size: 13.5px; color: var(--ink-soft); line-height: 1.4; }
+  .check { margin-top: 40px; }
+  .check p { margin: 0 0 12px; font-size: 14.5px; color: var(--ink-soft); }
+  label.fieldlabel { display: block; font-family: "IBM Plex Mono", ui-monospace, monospace;
+                     font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+                     color: var(--ink-faint); margin-bottom: 6px; }
+  textarea { width: 100%; min-height: 120px; padding: 11px; font: inherit; font-size: 15px;
+             color: var(--ink); background: transparent; border: 1px solid var(--rule);
+             border-radius: 0; resize: vertical; margin-bottom: 12px; }
+  textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .verdict { display: flex; flex-direction: column; gap: 14px; margin-top: 16px; }
+  .vrow { display: flex; flex-wrap: wrap; gap: 4px; font-size: 15px; }
+  .quotes { flex: 1 1 100%; margin: 2px 0 0; padding: 0 0 0 14px; list-style: none;
+            border-left: 1px solid var(--rule); display: flex; flex-direction: column; gap: 6px; }
+  .quotes li { font-size: 14px; color: var(--ink-soft); line-height: 1.45; }
 
-  .sign { font-size: 14.5px; color: var(--ink-soft); margin: 0; }
+  .sign { font-size: 15px; color: var(--ink-soft); margin: 34px 0 0; }
   .sign b { color: var(--ink); font-weight: 600; }
-  .contact { font-size: 14.5px; margin: 0; padding-top: 12px; border-top: 1px solid var(--rule-soft); }
-  .contact a { color: var(--amber); }
+  .contact { font-size: 15px; margin: 14px 0 0; color: var(--ink-soft); }
+  .contact b { color: var(--ink); font-weight: 600; }
 
-  /* Desktop is not a second design — it is the same page with room to breathe.
-     Wider column, larger type, and the control moved beside the question so the
-     width carries something instead of sitting empty to its right. */
-  @media (min-width: 760px) {
-    body { font-size: 16px; }
-    .wrap { max-width: 720px; padding-inline: 24px; padding-block: 40px 72px; gap: 26px; }
-
-    .strip { padding: 20px 24px; align-items: center; }
-    .strip h1 { font-size: 44px; }
-
-    .how { padding: 22px 24px; }
-    .how .lead { font-size: 32px; margin-bottom: 14px; }
-    .how .better, .how .fine li { max-width: 62ch; }
-    .how .steps li { font-size: 16px; }
-
-    .q { padding: 18px 20px; display: grid; column-gap: 22px;
-         grid-template-columns: minmax(0, 1fr) auto; align-items: start; }
-    .qhead { grid-column: 1; grid-row: 1; }
-    .why    { grid-column: 1; grid-row: 2; max-width: 60ch; }
-    .q > .row { grid-column: 2; grid-row: 1 / span 2; align-self: start; margin-top: 2px; }
-    .clips  { grid-column: 1 / -1; grid-row: 3; }
-    .q > .err, .q > .note { grid-column: 1 / -1; grid-row: 4; }
-    .keepon { flex: 1 1 100%; }
-
-    .check p, .sign, .tallynote, .contact { max-width: 62ch; }
-    textarea { min-height: 150px; }
+  @media (min-width: 720px) {
+    .wrap { max-width: 38rem; padding-block: 64px 96px; }
+    h1 { font-size: 36px; }
+    .how .lead { font-size: 21px; }
+    /* The number moves into the margin — a real hanging indent, not a chip. */
+    .q { grid-template-columns: 3rem 1fr; padding: 22px 0; }
+    .qnum { padding-top: 4px; }
   }
 
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
@@ -200,9 +162,9 @@
 <body>
 <div class="wrap">
 
-  <header class="strip">
+  <header>
     <h1>Talk, don’t type</h1>
-    <span class="meta">Outreach visits</span>
+    <div class="kicker">Outreach visits &middot; 13 questions</div>
   </header>
 
   <div class="how">
@@ -409,16 +371,16 @@
       group.style.marginBottom = "18px";
     }
     var card = el("article", "q" + (q.big ? " big" : ""));
-    var head = el("div", "qhead");
-    // Not a filing system — he is never asked to quote it. It numbers the list so
-    // he can see what he has covered, and it names this recorder's files.
-    head.appendChild(el("span", "qnum", "Q" + q.id.slice(1)));
-    head.appendChild(el("span", "ask", q.ask));
-    card.appendChild(head);
-    card.appendChild(el("div", "why", q.why));
+    // The number hangs in the margin like a numbered list, not a badge. He is
+    // never asked to quote it; it orders the list and names this recorder's files.
+    card.appendChild(el("div", "qnum", q.id.slice(1)));
+    var body = el("div", "qbody");
+    body.appendChild(el("div", "ask", q.ask));
+    body.appendChild(el("div", "why", q.why));
+    card.appendChild(body);
 
     var clips = el("div", "clips");
-    card.appendChild(clips);
+    body.appendChild(clips);
 
     var row = el("div", "row");
     var mic = el("button", "mic", "Record a short one");
@@ -429,10 +391,10 @@
     var keepon = el("span", "keepon", "Keep the screen on \u2014 a lock can cut this off.");
     keepon.hidden = true;
     row.appendChild(mic); row.appendChild(time); row.appendChild(keepon);
-    card.appendChild(row);
+    body.appendChild(row);
 
     var err = el("div", "err"); err.hidden = true;
-    card.appendChild(err);
+    body.appendChild(err);
 
     (group || host).appendChild(card);
 
