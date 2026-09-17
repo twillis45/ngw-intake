@@ -57,8 +57,9 @@
   .how .steps li { position: relative; padding-left: 20px; margin-bottom: 4px; }
   .how .steps li::before { content: ""; position: absolute; left: 4px; top: .68em;
                            width: 5px; height: 1px; background: var(--ink-faint); }
-  .how .fine { list-style: none; margin: 18px 0 0; padding: 0;
-               font-size: 14px; color: var(--ink-soft); }
+  .how .fine { list-style: none; margin: 22px 0 0; padding: 18px 0 0;
+               border-top: 1px solid var(--rule);
+               font-size: 14.5px; color: var(--ink-soft); }
   .how .fine li { margin-bottom: 8px; }
   .how .fine b, .how .better b { font-weight: 600; color: var(--ink); }
 
@@ -67,30 +68,33 @@
   .warn b { color: var(--ink); }
 
   /* Section labels sit in the flow as small caps, not as ruled dividers. */
-  h2 { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11px; font-weight: 500;
-       letter-spacing: .14em; text-transform: uppercase; color: var(--ink-faint);
-       margin: 40px 0 6px; }
+  h2 { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 12px; font-weight: 500;
+       letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft);
+       margin: 88px 0 14px; }
+  /* The 88px IS the boundary — a rule under the label would repeat it, and
+     repeat it in the same weight as the twelve that separate ordinary items. */
+  .group > .q:first-of-type { border-top: none; }
   .group { display: flex; flex-direction: column; }
 
   /* A question is a numbered entry in a list, not a card. Hairline between,
      nothing around. The only emphasis is on the first three. */
-  .q { padding: 18px 0; border-top: 1px solid var(--rule);
+  .q { padding: 22px 0; border-top: 1px solid var(--rule);
        display: grid; grid-template-columns: 2.1rem 1fr; column-gap: 2px; }
   .q.big .qnum { color: var(--accent); font-weight: 500; }
   .q.big .ask { font-weight: 600; }
   .qnum { grid-column: 1; font-family: "IBM Plex Mono", ui-monospace, monospace;
-          font-size: 14px; color: var(--ink-faint); padding-top: 2px;
+          font-size: 15px; color: var(--ink-soft); padding-top: 3px;
           font-variant-numeric: tabular-nums; }
   .qbody { grid-column: 2; display: flex; flex-direction: column; gap: 9px; }
   .ask { font-size: 17px; font-weight: 500; line-height: 1.35; text-wrap: balance; }
-  .why { font-size: 14.5px; color: var(--ink-soft); }
+  .why { font-size: 14.5px; color: var(--ink-soft); text-wrap: pretty; }
   .why b { font-weight: 600; color: var(--ink); }
 
   .row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 
   /* Controls are quiet until they matter. */
-  button { font: inherit; font-size: 14px; font-weight: 450; cursor: pointer;
-           border: 1px solid var(--rule-hard); background: transparent; color: var(--ink);
+  button { font: inherit; font-size: 14.5px; font-weight: 450; cursor: pointer;
+           border: 1px solid var(--rule); background: transparent; color: var(--ink-soft);
            padding: 8px 13px; min-height: 44px; border-radius: 0;
            touch-action: manipulation; transition: background-color .12s ease, color .12s ease; }
   button:hover { background: var(--ink); color: var(--paper); }
@@ -98,14 +102,22 @@
   button[disabled] { opacity: .35; cursor: not-allowed; }
   button[disabled]:hover { background: transparent; color: var(--ink); }
   .mic.live, .mic.live:hover { background: var(--live); border-color: var(--live); color: #fff; }
+  .mic:hover { border-color: var(--ink); }
   .send { border-color: var(--good); color: var(--good); }
   .send:hover { background: var(--good); border-color: var(--good); color: #fff; }
   .danger.armed, .danger.armed:hover { background: var(--live); border-color: var(--live); color: #fff; }
 
-  .time { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 14px;
+  .time { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 14.5px;
           font-variant-numeric: tabular-nums; color: var(--ink-faint); }
   .time.live { color: var(--live); }
-  .keepon { font-size: 13px; color: var(--live); flex: 1 1 100%; }
+
+  /* Direct evidence about the audio being written, not about dictation:
+     it is driven by the recorder's own stream, so a flat bar means a dead
+     microphone even when the phone is happily transcribing. */
+  .level { flex: none; width: 46px; height: 3px; background: var(--rule); overflow: hidden; }
+  .level i { display: block; height: 100%; width: 0; background: var(--live);
+             transform-origin: left center; }
+  .keepon { font-size: 14.5px; color: var(--live); flex: 1 1 100%; }
 
   .flag { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11px;
           letter-spacing: .08em; text-transform: uppercase; color: var(--good); }
@@ -118,32 +130,17 @@
   .clip audio { flex: 1 1 100%; width: 100%; min-width: 0; height: 34px; }
   audio { width: 100%; min-width: 0; }
 
-  .said { flex: 1 1 100%; font-size: 14px; color: var(--ink-soft); line-height: 1.45;
+  .said { flex: 1 1 100%; font-size: 14.5px; color: var(--ink-soft); line-height: 1.45;
           border-left: 1px solid var(--rule); padding-left: 12px; margin-top: 2px; }
   .said.pending { color: var(--ink-faint); font-style: italic; }
-  .err  { font-size: 14px; color: var(--live); flex: 1 1 100%; }
-  .note { font-size: 14px; color: var(--ink-soft); flex: 1 1 100%; }
+  .err  { font-size: 14.5px; color: var(--live); flex: 1 1 100%; }
+  .note { font-size: 14.5px; color: var(--ink-soft); flex: 1 1 100%; }
 
   .footer-bar { border-top: 1px solid var(--rule-hard); margin-top: 6px; padding-top: 16px;
                 display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
   .tally { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 12px;
            letter-spacing: .04em; color: var(--ink-faint); flex: 1 1 auto; }
-  .tallynote { font-size: 13.5px; color: var(--ink-faint); margin: 10px 0 0; }
-
-  .check { margin-top: 40px; }
-  .check p { margin: 0 0 12px; font-size: 14.5px; color: var(--ink-soft); }
-  label.fieldlabel { display: block; font-family: "IBM Plex Mono", ui-monospace, monospace;
-                     font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
-                     color: var(--ink-faint); margin-bottom: 6px; }
-  textarea { width: 100%; min-height: 120px; padding: 11px; font: inherit; font-size: 15px;
-             color: var(--ink); background: transparent; border: 1px solid var(--rule);
-             border-radius: 0; resize: vertical; margin-bottom: 12px; }
-  textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-  .verdict { display: flex; flex-direction: column; gap: 14px; margin-top: 16px; }
-  .vrow { display: flex; flex-wrap: wrap; gap: 4px; font-size: 15px; }
-  .quotes { flex: 1 1 100%; margin: 2px 0 0; padding: 0 0 0 14px; list-style: none;
-            border-left: 1px solid var(--rule); display: flex; flex-direction: column; gap: 6px; }
-  .quotes li { font-size: 14px; color: var(--ink-soft); line-height: 1.45; }
+  .tallynote { font-size: 14.5px; color: var(--ink-soft); margin: 12px 0 0; }
 
   .sign { font-size: 15px; color: var(--ink-soft); margin: 34px 0 0; }
   .sign b { color: var(--ink); font-weight: 600; }
@@ -153,13 +150,24 @@
                text-decoration-thickness: 1px; }
   .contact a:hover { color: var(--accent); }
 
+  /* The one instruction that has to survive scrolling. Everything else on this
+     page is optional; this line is the whole job. */
+  .standing { position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
+              background: var(--paper); border-top: 1px solid var(--rule-hard);
+              padding: 10px 20px calc(10px + env(safe-area-inset-bottom, 0px));
+              font-size: 14.5px; color: var(--ink-soft); text-align: center; }
+  .standing b { color: var(--ink); font-weight: 600; }
+  .standing a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px;
+                text-decoration-thickness: 1px; white-space: nowrap; }
+  body { padding-bottom: 64px; }
+
   @media (min-width: 720px) {
     .wrap { max-width: 38rem; padding-block: 64px 96px; }
     h1 { font-size: 36px; }
     .how .lead { font-size: 21px; }
     /* The number moves into the margin — a real hanging indent, not a chip. */
-    .q { grid-template-columns: 3rem 1fr; padding: 22px 0; }
-    .qnum { padding-top: 4px; }
+    .q { grid-template-columns: 3rem 1fr; padding: 26px 0; }
+    .qnum { padding-top: 5px; }
   }
 
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
@@ -178,7 +186,7 @@
     <ul class="steps">
       <li>Open <b>Voice Memos</b> and hit record</li>
       <li>Answer anything that comes to mind &mdash; any order</li>
-      <li>No names, no numbers, no labelling</li>
+      <li>No names, no numbers, no labeling</li>
       <li>Send them over whenever</li>
     </ul>
     <p class="better"><b>Better still:</b> skip the list and talk me through the
@@ -187,8 +195,8 @@
     <ul class="fine">
       <li>Transcript under the recording? Send that too.</li>
       <li>Short answer? Hit <b>Record a short one</b> on a question below &mdash; it
-        files itself. Save Voice Memos for the long ones; a web recording can cut
-        off if your phone locks.</li>
+        files itself. Save Voice Memos for the long ones — if your phone
+        locks, a recording made here stops there and keeps only what you had.</li>
       <li>Anything you record here stays in this browser on this phone until you
         send it &mdash; open the link the same way each time.</li>
       <li id="dictation-note" hidden>Your phone writes each one out as you talk, and the
@@ -219,11 +227,18 @@
   </div>
   <div class="err" id="sendall-err" hidden></div>
   <p class="tallynote">Recording in Voice Memos instead? This counter won’t see those
-    &mdash; that’s fine, it’s the better way.</p>
+    &mdash; that’s fine, it’s the better way. It only counts what you recorded
+    <b>on this page, in this browser</b>; open the link in a different app or a
+    private window and it starts back at zero even though nothing was lost.</p>
 
   <p class="sign"><b>No rush, no order, no labels.</b> The first three get me most of the way.</p>
   <p class="contact">Stuck, or something looks wrong? <b>Text me &mdash;
     <a id="contact-me" href="sms:+12404325650">(240)&nbsp;432-5650</a></b></p>
+</div>
+
+<div class="standing" id="standing">
+  <b>Voice Memos</b> &rarr; text it to
+  <a href="sms:+12404325650">(240)&nbsp;432-5650</a>
 </div>
 
 <script>
@@ -236,10 +251,10 @@
       why: "Their supervisor, the facility, somebody at the national level? This one decides more about how I build this than anything else." },
     { big: true, id: "q2",
       ask: "Walk me through one visit, start to finish.",
-      why: "Easiest as three short ones: <b>getting to the day</b>, <b>the day itself</b>, <b>after</b>. Most of it's the first &mdash; that's expected." },
+      why: "Easiest as three short ones: <b>getting to the day</b>, <b>the day itself</b>, <b>after</b>. Most of it’s the first &mdash; that’s expected." },
     { big: true, id: "q3",
       ask: "Tell me about one that went sideways.",
-      why: "Speaker pulled, room empty, AV dead, they ghosted you. What happened and what you did. Stories teach me things a checklist can't." },
+      why: "Speaker pulled, room empty, AV dead, they ghosted you. What happened and what you did. Stories teach me things a checklist can’t." },
 
     { group: "The people part", id: "q4",
       ask: "How do you find controllers willing to go?",
@@ -258,21 +273,21 @@
       ask: "What kinds of places actually host these?",
       why: "Colleges, trade schools, job fairs, associations, something else entirely? And which ones are worth the trip?" },
     { id: "q9",
-      ask: "Is every visit the same shape, or does it change by who's hosting?",
+      ask: "Is every visit the same shape, or does it change by who’s hosting?",
       why: "And if it changes &mdash; on purpose, or because they asked?" },
     { id: "q10",
-      ask: "What's the rule on a host feeding you or putting you up?",
-      why: "I assume there's a policy. I'd rather hear it from you than guess at it." },
+      ask: "What’s the rule on a host feeding you or putting you up?",
+      why: "I assume there’s a policy. I’d rather hear it from you than guess at it." },
 
     { group: "Whether it worked", id: "q11",
-      ask: "Someone's genuinely interested. What happens next?",
+      ask: "Someone’s genuinely interested. What happens next?",
       why: "Do you collect anything from them, hand them off, point them somewhere?" },
     { id: "q12",
       ask: "Who judges whether this program is working, and on what?",
-      why: "Headcount, applications, something else? I want to build toward the thing you're actually measured on." },
+      why: "Headcount, applications, something else? I want to build toward the thing you’re actually measured on." },
     { id: "q13",
       ask: "If you handed this to someone tomorrow, what would they get wrong?",
-      why: "My favorite question. The stuff that isn't written down anywhere." }
+      why: "My favorite question. The stuff that isn’t written down anywhere." }
   ];
   // ---- capability checks, before any UI promises recording ----------------
   var canRecord =
@@ -384,9 +399,14 @@
     mic.id = "mic-" + q.id;
     if (!canRecord) mic.disabled = true;
     var time = el("span", "time", "");
-    var keepon = el("span", "keepon", "Keep the screen on \u2014 a lock can cut this off.");
+    var level = el("span", "level", "<i></i>");
+    level.hidden = true;
+    var keepon = el("span", "keepon", "If your screen locks, this stops and keeps what you said so far.");
     keepon.hidden = true;
-    row.appendChild(mic); row.appendChild(time); row.appendChild(keepon);
+    var live = el("div", "said pending", "");
+    live.hidden = true;
+    row.appendChild(mic); row.appendChild(time); row.appendChild(level);
+    row.appendChild(keepon); row.appendChild(live);
     body.appendChild(row);
 
     var err = el("div", "err"); err.hidden = true;
@@ -394,7 +414,8 @@
 
     (group || host).appendChild(card);
 
-    cards[q.id] = { q: q, card: card, mic: mic, time: time, keepon: keepon,
+    cards[q.id] = { q: q, card: card, mic: mic, time: time, level: level,
+                    keepon: keepon, live: live,
                     clipsEl: clips, err: err, clips: [], seq: 0 };
 
     mic.addEventListener("click", function () { toggle(q.id); });
@@ -479,7 +500,14 @@
       rec.flag.className = "flag";
     }
     rec.clip.sent = how;
-    put(rec.key, rec.clip).catch(function () {});
+    tally();
+    // If the "sent" mark does not persist, Send all will offer this clip again
+    // after a reload. Harmless, but he should know why, not wonder.
+    put(rec.key, rec.clip).catch(function () {
+      say(cards[rec.key.split("::")[0]],
+          "Your phone wouldn\u2019t remember that this one went out \u2014 it may show up in Send all again.",
+          "note");
+    });
   }
 
   function renumber(id) {
@@ -540,6 +568,45 @@
     };
   }
 
+  // ---- level meter --------------------------------------------------------
+  // Dictation text proves the phone heard something. It does not prove the
+  // MediaRecorder did. This reads the recorder's own stream, so what moves the
+  // bar is exactly what ends up in the file.
+  var AC = window.AudioContext || window.webkitAudioContext;
+  function startMeter(stream, onLevel) {
+    if (!AC) return null;
+    var ctx, src, an;
+    try {
+      ctx = new AC();
+      src = ctx.createMediaStreamSource(stream);
+      an = ctx.createAnalyser();
+      an.fftSize = 512;
+      src.connect(an);
+      // Started from inside a promise, so the click's activation may be gone
+      // and the context may come up suspended — a suspended context reads as
+      // silence, which is exactly the lie this meter exists to prevent.
+      if (ctx.state === "suspended" && ctx.resume) ctx.resume();
+    } catch (e) { return null; }
+    var buf = new Uint8Array(an.fftSize), raf = null, on = true;
+    function loop() {
+      if (!on) return;
+      an.getByteTimeDomainData(buf);
+      var sum = 0;
+      for (var i = 0; i < buf.length; i++) { var v = (buf[i] - 128) / 128; sum += v * v; }
+      onLevel(Math.min(1, Math.sqrt(sum / buf.length) * 4));
+      raf = requestAnimationFrame(loop);
+    }
+    loop();
+    return {
+      stop: function () {
+        on = false;
+        if (raf) cancelAnimationFrame(raf);
+        try { src.disconnect(); } catch (e) {}
+        try { ctx.close(); } catch (e) {}
+      }
+    };
+  }
+
   // ---- recording ----------------------------------------------------------
   // Every recorder owns its own timer and stream in this closure. `current` is
   // only an identity check — an older recorder stopping late can no longer
@@ -583,7 +650,8 @@
       }
 
       var chunks = [], t0 = Date.now(), tick = null, done = false;
-      var heard = "", dict = null;
+      var heard = "", dict = null, meter = null;
+      var bar = c.level.firstChild;
       var mine = {
         id: id,
         stop: function () { try { rec.stop(); } catch (e) { finish(true); } }
@@ -593,6 +661,11 @@
         if (done) return;
         done = true;
         clearInterval(tick);
+        if (meter) { meter.stop(); meter = null; }
+        c.level.hidden = true;
+        bar.style.width = "0";
+        c.live.hidden = true;
+        c.live.textContent = "";
         if (dict) { heard = dict.stop() || heard; dict = null; }
         stream.getTracks().forEach(function (t) { t.stop(); }); // release the mic
         if (current === mine) current = null;
@@ -638,9 +711,16 @@
       }
 
       dict = startDictation(function (live) {
-        c.time.dataset.said = live;   // live text is shown on the clip once filed
         heard = live;
+        // Shown as he speaks. Seeing his own words appear is the only proof
+        // available on the phone that this is recording and not just counting.
+        c.live.textContent = live;
+        c.live.hidden = !live;
       });
+      meter = startMeter(stream, function (lvl) {
+        bar.style.width = Math.round(lvl * 100) + "%";
+      });
+      c.level.hidden = !meter;
 
       current = mine;
       starting = false;
@@ -674,6 +754,14 @@
     c.mic.disabled = !canRecord;
     c.mic.textContent = c.clips.length ? "Add another" : "Record a short one";
   }
+
+  // The page warns that a screen lock can cut a recording off. Warning is not
+  // handling: iOS suspends the tab on lock or app switch, and a MediaRecorder
+  // suspended mid-recording is an answer lost with no error anywhere. So stop
+  // it while the page is still alive — onstop files what he already said.
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "hidden" && current) current.stop();
+  });
 
   // A tab discarded mid-recording takes the whole answer with it.
   window.addEventListener("beforeunload", function (e) {
@@ -710,7 +798,10 @@
     var bundle = t ? [f, t] : [f];
     if (f && navigator.canShare && navigator.canShare({ files: bundle }) && navigator.share) {
       navigator.share({ files: bundle, title: c.q.ask })
-        .then(function () { markSent(rec, "shared"); })
+        .then(function () {
+          markSent(rec, "shared");
+          say(c, "Handed to your share sheet \u2014 check the message actually went.", "note");
+        })
         .catch(function (e) {
           // AbortError is him closing the sheet. Anything else genuinely failed
           // and must not pass silently.
@@ -723,14 +814,23 @@
     a.href = rec.url;
     a.download = "cory-" + id + "-part" + (c.clips.indexOf(rec) + 1) + "." + extFor(rec.clip.type);
     document.body.appendChild(a); a.click(); a.remove();
-    markSent(rec, "local");
-    say(c, "Saved to this phone \u2014 it has not been sent. Attach it to a text or email.", "note");
+    // A download is a request, not a receipt: iOS may route it to Files, to a
+    // download prompt, or nowhere at all. The badge says what is certain.
+    rec.flag.hidden = false;
+    rec.flag.textContent = "Not sent";
+    rec.flag.className = "flag local";
+    say(c, "This browser can\u2019t hand files to Messages, so it tried to download this one instead. " +
+           "If your phone saved it, attach it to a text \u2014 nothing has been sent yet.", "note");
   }
 
   function allClips() {
     var out = [];
     Object.keys(cards).forEach(function (id) {
-      cards[id].clips.forEach(function (rec, i) { out.push({ id: id, rec: rec, n: i + 1 }); });
+      cards[id].clips.forEach(function (rec, i) {
+        // Already handed off once: sending it again is noise, and a second
+        // share sheet over thirteen files is how the real ones get lost.
+        if (!rec.clip.sent) out.push({ id: id, rec: rec, n: i + 1 });
+      });
     });
     return out;
   }
@@ -786,8 +886,9 @@
     if (total > answered) t += "  \u00b7  " + total + " recordings";
     document.getElementById("tally").textContent = t;
     var sa = document.getElementById("sendall");
-    sa.hidden = total === 0;
-    sa.textContent = total === 1 ? "Send it" : "Send all " + total;
+    var pending = allClips().length;
+    sa.hidden = pending === 0;
+    sa.textContent = pending === 1 ? "Send it" : "Send all " + pending;
   }
 
   // ---- restore ------------------------------------------------------------
@@ -800,6 +901,7 @@
     }).forEach(function (key) {
       var id = key.split("::")[0];
       if (cards[id] && saved[key] && saved[key].blob) addClip(id, saved[key], key);
+      else document.getElementById("restorefail").hidden = false;
     });
     tally();
   }).catch(function () {

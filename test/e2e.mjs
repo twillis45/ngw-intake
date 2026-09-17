@@ -3,7 +3,28 @@
 import { chromium } from 'playwright';
 import http from 'node:http';
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+// Chromium's fake microphone is silent by default, so a level meter would read
+// zero whether or not it worked. Hand it a real tone instead, and keep a silent
+// run at the end to prove the bar distinguishes the two.
+function toneFile() {
+  const rate = 48000, n = rate * 6, d = Buffer.alloc(44 + n * 2);
+  d.write('RIFF', 0); d.writeUInt32LE(36 + n * 2, 4); d.write('WAVE', 8);
+  d.write('fmt ', 12); d.writeUInt32LE(16, 16); d.writeUInt16LE(1, 20);
+  d.writeUInt16LE(1, 22); d.writeUInt32LE(rate, 24); d.writeUInt32LE(rate * 2, 28);
+  d.writeUInt16LE(2, 32); d.writeUInt16LE(16, 34);
+  d.write('data', 36); d.writeUInt32LE(n * 2, 40);
+  for (let i = 0; i < n; i++) {
+    d.writeInt16LE(Math.round(Math.sin((2 * Math.PI * 440 * i) / rate) * 12000), 44 + i * 2);
+  }
+  const f = path.join(os.tmpdir(), 'ngw-intake-tone.wav');
+  fs.writeFileSync(f, d);
+  return f;
+}
+const TONE = toneFile();
 
 const PAGE = fileURLToPath(new URL('../index.html', import.meta.url));
 const html = fs.readFileSync(PAGE);
@@ -20,7 +41,8 @@ const ok = (cond, label) => {
 
 const browser = await chromium.launch({
   executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
-  args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'],
+  args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream',
+         '--use-file-for-fake-audio-capture=' + TONE],
 });
 const ctx = await browser.newContext({
   permissions: ['microphone'],
@@ -53,12 +75,30 @@ ok(nums.join(',') === Array.from({ length: 13 }, (_, i) => String(i + 1)).join('
 
 console.log('\n=== copy ===');
 const how = await page.locator('.how').textContent();
-ok(/No names, no numbers, no labelling/.test(how), 'asks for no labelling');
+ok(/No names, no numbers, no labeling/.test(how), 'asks for no labeling (US spelling)');
 ok(!/say the question number/i.test(how), 'never asks him to speak a number');
 ok(/skip the list/.test(how), 'the one-long-recording option is offered');
 ok(/stays in this browser on this phone/.test(how), 'says where recordings live');
-ok(/Recording in Voice Memos instead/.test(await page.locator('.tallynote').textContent()),
-   'tally explains it cannot see Voice Memos');
+const tallynote = await page.locator('.tallynote').textContent();
+ok(/Recording in Voice Memos instead/.test(tallynote), 'tally explains it cannot see Voice Memos');
+// A zero after switching browsers reads as lost work unless the page says otherwise.
+ok(/on this page, in this browser/.test(tallynote), 'and that it only counts this browser');
+
+// Everything else here is optional. This line is the job, so it has to survive
+// scrolling — it is the only instruction he needs if he reads nothing else.
+const standing = page.locator('#standing');
+ok(await standing.isVisible(), 'the standing line is up without scrolling');
+const stand = await standing.textContent();
+ok(/Voice Memos/.test(stand) && /432-5650/.test(stand), 'it carries the whole instruction');
+await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+await page.waitForTimeout(250);
+ok(await standing.isVisible(), 'and is still up at the bottom of the page');
+ok(await page.evaluate(() => {
+     const bar = document.getElementById('standing').getBoundingClientRect();
+     const last = document.querySelector('.contact').getBoundingClientRect();
+     return last.bottom <= bar.top + 1;
+   }), 'it does not sit on top of the last line of the page');
+await page.evaluate(() => window.scrollTo(0, 0));
 const contact = page.locator('#contact-me');
 ok(/Text me/.test(await page.locator('.contact').textContent()), 'a way to reach him exists');
 // A placeholder shipping to him would be worse than no contact line at all.
@@ -107,20 +147,32 @@ const accent = await page.evaluate(() => {
 ok(accent.count > 0, `the accent is actually applied somewhere (${accent.acc})`);
 ok(accent.count === 3 && accent.onBig === 3,
    `accent used exactly on the first three questions and nowhere else (${accent.count} uses, ${accent.onBig} on .big)`);
-ok(await card(0).evaluate((e) => getComputedStyle(e).borderTopWidth === '1px'),
+ok(await card(1).evaluate((e) => getComputedStyle(e).borderTopWidth === '1px'),
    'entries are separated by a hairline, not boxed');
+// The section label's 88px IS the boundary; a rule under it would say the same
+// thing twice, in the same weight as the twelve that separate ordinary items.
+ok(await card(0).evaluate((e) => getComputedStyle(e).borderTopWidth === '0px'),
+   'the first entry under a section label carries no second boundary');
 
 console.log('\n=== recording: the state machine ===');
 await page.locator('#mic-q1').click();
 await page.waitForTimeout(700);
 ok((await page.locator('#mic-q1').textContent()) === 'Stop', 'button reads Stop while live');
 ok(await page.locator('#mic-q4').isDisabled(), 'other questions disabled while one records');
-ok(await card(0).locator('.keepon').isVisible(), 'screen-lock warning shows where it applies');
+ok(await card(0).locator('.keepon').isVisible(), 'screen-lock line shows where it applies');
+ok(/stops and keeps what you said/.test(await card(0).locator('.keepon').textContent()),
+   'it describes what the page does, not only what could go wrong');
+// Live evidence about the recorder's own stream, not about dictation.
+ok(await card(0).locator('.level').isVisible(), 'the level meter is up while recording');
+ok(await card(0).locator('.level i').evaluate((e) => parseFloat(e.style.width) > 0),
+   'the meter actually moves on the fake device');
 await page.waitForTimeout(900);
 await page.locator('#mic-q1').click();
 await page.waitForTimeout(900);
 ok(!(await page.locator('#mic-q4').isDisabled()), 'others re-enabled after stop');
-ok(await card(0).locator('.keepon').isHidden(), 'warning hidden again');
+ok(await card(0).locator('.keepon').isHidden(), 'line hidden again');
+ok(await card(0).locator('.level').isHidden(), 'meter torn down with the recorder');
+ok(await card(0).locator('.said.pending').isHidden(), 'live transcript cleared on stop');
 ok((await card(0).locator('.clip').count()) === 1, 'one clip filed');
 
 // The race the old build lost an answer to: start a second question while the
@@ -178,6 +230,85 @@ await page.waitForTimeout(1100);
 ok((await page.locator('#tally').textContent()).includes('3 of 13 answered'), 'restored after reload');
 ok(!(await page.locator('#restorefail').isVisible()), 'no false restore-failure banner');
 
+// The page warns that a screen lock can cut a recording off. Warning is not
+// handling — this is the handling.
+console.log('\n=== backgrounding files the answer instead of losing it ===');
+await page.locator('#mic-q6').click();
+await page.waitForTimeout(1300);
+ok((await page.locator('#mic-q6').textContent()) === 'Stop', 'q6 is live');
+// Stand in for the signal iOS sends on lock or app switch. The handler reads
+// document.visibilityState, so that is what gets stubbed — not the handler.
+const visibility = (state) => page.evaluate((v) => {
+  Object.defineProperty(document, 'visibilityState', { get: () => v, configurable: true });
+  document.dispatchEvent(new Event('visibilitychange'));
+}, state);
+await visibility('hidden');
+await page.waitForTimeout(1000);
+ok((await page.locator('#mic-q6').textContent()) === 'Add another', 'the recorder stopped itself');
+ok((await card(5).locator('.clip').count()) === 1, 'and what he had already said was filed');
+ok(!(await page.locator('#mic-q1').isDisabled()), 'the mic lock was released');
+await visibility('visible');
+
+console.log('\n=== Send all offers only what has not gone ===');
+ok((await page.locator('#sendall').textContent()) === 'Send all 4',
+   'four recordings, four to send');
+await page.evaluate(() => {
+  Object.defineProperty(navigator, 'canShare', { value: () => true, configurable: true });
+  Object.defineProperty(navigator, 'share', { value: () => Promise.resolve(), configurable: true });
+});
+await card(0).locator('.clip').first().locator('button.send').click();
+await page.waitForTimeout(500);
+ok((await card(0).locator('.clip').first().locator('.flag').textContent()) === 'Handed off',
+   'the badge says handed off, never sent');
+ok(/check the message actually went/.test(await card(0).locator('.note').first().textContent()),
+   'and the one thing the page cannot know is asked of him, per clip');
+ok((await page.locator('#sendall').textContent()) === 'Send all 3',
+   'Send all stops offering a recording that already went');
+
+console.log('\n=== a download is a request, not a receipt ===');
+await page.evaluate(() => {
+  Object.defineProperty(navigator, 'canShare', { value: undefined, configurable: true });
+  Object.defineProperty(navigator, 'share', { value: undefined, configurable: true });
+});
+await card(1).locator('.clip').first().locator('button.send').click();
+await page.waitForTimeout(600);
+ok((await card(1).locator('.clip').first().locator('.flag').textContent()) === 'Not sent',
+   'the fallback never claims the file was saved, let alone sent');
+ok(/nothing has been sent yet/.test(await card(1).locator('.note').first().textContent()),
+   'the note is conditional about the save and flat about the send');
+ok((await page.locator('#sendall').textContent()) === 'Send all 3',
+   'a download did not quietly count as sent');
+
+console.log('\n=== a clip that cannot be restored is never silent ===');
+await page.evaluate(() => new Promise((res, rej) => {
+  const r = indexedDB.open('ngw-voice-brief', 1);
+  r.onsuccess = () => {
+    const tx = r.result.transaction('clips', 'readwrite');
+    tx.objectStore('clips').put({ ms: 1000, said: '' }, 'q9::1');   // no blob
+    tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+  };
+  r.onerror = () => rej(r.error);
+}));
+await page.reload({ waitUntil: 'load' });
+await page.waitForTimeout(1300);
+ok(await page.locator('#restorefail').isVisible(),
+   'the banner is up for a stored clip that could not be read back');
+ok((await card(8).locator('.clip').count()) === 0, 'and nothing was invented in its place');
+ok((await card(0).locator('.clip').first().locator('.flag').textContent()) === 'Handed off',
+   'the handed-off mark survived the reload');
+await page.evaluate(() => new Promise((res) => {
+  const r = indexedDB.open('ngw-voice-brief', 1);
+  r.onsuccess = () => {
+    const tx = r.result.transaction('clips', 'readwrite');
+    tx.objectStore('clips').delete('q9::1');
+    tx.oncomplete = res; tx.onerror = res;
+  };
+  r.onerror = res;
+}));
+await page.reload({ waitUntil: 'load' });
+await page.waitForTimeout(1300);
+ok(!(await page.locator('#restorefail').isVisible()), 'banner gone once the store reads clean');
+
 console.log('\n=== dictation degrades silently ===');
 // Chromium here has no working speech service, so this proves the path nobody
 // should ever notice: no transcript, no error, recording unaffected.
@@ -187,9 +318,50 @@ const dict = await page.evaluate(() => ({
 }));
 ok(dict.noteShown === dict.api,
    `the dictation note appears only where dictation exists (api=${dict.api})`);
-ok((await page.locator('.said').count()) === 0 || dict.api,
-   'no transcript block without dictation');
+// The API exists in this browser but its service never answers, so this is the
+// silent-failure path: no text, and therefore no empty transcript block either.
+ok((await page.locator('.said:visible').count()) === 0,
+   'a transcript block never shows with nothing in it');
 ok((await card(0).locator('.clip').count()) > 0, 'recordings still file with dictation absent');
+
+// With a service that does answer, the words have to reach the screen while he
+// talks, and ride along with the audio afterwards. Stub the API, not our code.
+console.log('\n=== the transcript is shown as he speaks ===');
+const heard = await browser.newContext({ permissions: ['microphone'],
+  viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
+await heard.addInitScript(() => {
+  const SAID = 'the facility manager signs off on it';
+  function Fake() { this.continuous = false; this.interimResults = false; this.lang = 'en-US'; }
+  Fake.prototype.start = function () {
+    this._t = setTimeout(() => {
+      if (!this.onresult) return;
+      this.onresult({ resultIndex: 0, results: [{ 0: { transcript: SAID }, isFinal: true, length: 1 }] });
+    }, 300);
+  };
+  Fake.prototype.stop = function () {
+    clearTimeout(this._t);
+    if (this.onend) this.onend();
+  };
+  window.SpeechRecognition = Fake;
+  window.webkitSpeechRecognition = Fake;
+});
+const hp = await heard.newPage();
+await hp.goto('http://localhost:8731/', { waitUntil: 'load' });
+ok(!(await hp.locator('#dictation-note').isHidden()),
+   'he is told his phone is writing it out, and where that text goes');
+await hp.locator('#mic-q1').click();
+await hp.waitForTimeout(1400);
+const liveEl = hp.locator('article.q').first().locator('.said.pending');
+ok(await liveEl.isVisible(), 'the words appear while the recording is still running');
+ok(/facility manager signs off/.test(await liveEl.textContent()),
+   'and they are the words that were said');
+await hp.locator('#mic-q1').click();
+await hp.waitForTimeout(900);
+ok(await liveEl.isHidden(), 'the live block clears once the clip is filed');
+const filed = hp.locator('article.q').first().locator('.clip .said');
+ok((await filed.count()) === 1 && /facility manager signs off/.test(await filed.textContent()),
+   'the text is filed with its recording, with nothing copied or pasted');
+await heard.close();
 
 ok((await page.locator('#tx').count()) === 0, 'the paste box is gone');
 ok((await page.locator('#checkbtn').count()) === 0, 'the summary button is gone');
@@ -246,6 +418,28 @@ ok(L.column >= 560 && L.column <= 660, `measure stays readable on desktop (${L.c
 ok(L.bodyPx >= 16, `type scales up for desktop (${L.bodyPx}px)`);
 await wp.screenshot({ path: '/tmp/intake-desktop.png' });
 await wide.close();
+
+// The meter is only worth having if a flat bar means something. Same page,
+// same code path, silence on the wire.
+console.log('\n=== the meter reads silence as silence ===');
+const quiet = await chromium.launch({
+  executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+  args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'],
+});
+const qc = await quiet.newContext({ permissions: ['microphone'],
+  viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
+const qp = await qc.newPage();
+await qp.goto('http://localhost:8731/', { waitUntil: 'load' });
+await qp.locator('#mic-q1').click();
+await qp.waitForTimeout(1800);
+ok(await qp.locator('.level').first().isVisible(), 'the meter is still up on a silent mic');
+ok(await qp.locator('.level i').first().evaluate((e) => parseFloat(e.style.width) === 0),
+   'and reads flat, so a moving bar is real evidence');
+await qp.locator('#mic-q1').click();
+await qp.waitForTimeout(900);
+ok((await qp.locator('article.q').first().locator('.clip').count()) === 1,
+   'a silent recording still files — the meter reports, it does not gate');
+await quiet.close();
 
 console.log('\n=== console ===');
 const real = errors.filter((e) => !/ERR_CERT_AUTHORITY_INVALID/.test(e));
