@@ -66,7 +66,10 @@ const card = (n) => page.locator('article.q').nth(n);
 
 console.log('\n=== at rest ===');
 ok((await page.locator('article.q').count()) === 13, '13 question cards');
-ok((await page.locator('#tally').textContent()).trim() === '0 of 13 answered', 'tally at zero');
+ok((await page.locator('#fig-answered').textContent()) === '0/13' &&
+   (await page.locator('#fig-clips').textContent()) === '0', 'ledger reads zero');
+ok(/Nothing recorded on this page yet/.test(await page.locator('#tally').textContent()),
+   'and the line says what that means, not just the number');
 ok(!(await page.locator('#sendall').isVisible()), 'Send all hidden');
 ok((await page.locator('article.q audio:visible').count()) === 0, 'no dead audio players');
 const nums = await page.locator('.qnum').allTextContents();
@@ -79,7 +82,7 @@ ok(/No names, no numbers, no labeling/.test(how), 'asks for no labeling (US spel
 ok(!/say the question number/i.test(how), 'never asks him to speak a number');
 ok(/skip the list/.test(how), 'the one-long-recording option is offered');
 ok(/stays in this browser on this phone/.test(how), 'says where recordings live');
-const tallynote = await page.locator('.tallynote').textContent();
+const tallynote = (await page.locator('.tallynote').allTextContents()).join(' ');
 ok(/Recording in Voice Memos instead/.test(tallynote), 'tally explains it cannot see Voice Memos');
 // A zero after switching browsers reads as lost work unless the page says otherwise.
 ok(/on this page, in this browser/.test(tallynote), 'and that it only counts this browser');
@@ -120,39 +123,29 @@ ok(await page.locator('button').first().evaluate((b) => getComputedStyle(b).touc
    'buttons set touch-action: manipulation');
 ok(await page.locator('#mic-q1').evaluate((b) => parseFloat(getComputedStyle(b).minHeight) >= 44),
    'tap targets at least 44px');
-// The page is a document, not a stack of cards: nothing but the transcript
-// quote block and the one warning may draw a box or a fill.
-const boxes = await page.evaluate(() => {
-  const sel = 'header, .how, article.q, .footer-bar, .check';
-  return [...document.querySelectorAll(sel)].filter((e) => {
-    const c = getComputedStyle(e);
-    const bg = c.backgroundColor;
-    const filled = bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent';
-    const boxed = ['Top', 'Right', 'Bottom', 'Left']
-      .filter((s) => parseFloat(c['border' + s + 'Width']) > 0).length >= 2;
-    return filled || boxed;
-  }).length;
+// UX_04 4.4: content lives in containers. The previous build asserted the
+// reverse — "no panels, cards or tinted blocks" — which is exactly why it
+// read flat. The assertion inverts rather than disappears.
+ok((await page.locator('.q').count()) === 13 &&
+   await card(0).evaluate((e) => getComputedStyle(e).backgroundColor !== 'rgba(0, 0, 0, 0)'),
+   'every question sits on its own card surface');
+// UX_02: the accent marks ONE primary target per view, and only interactives.
+const steel = await page.evaluate(() => {
+  const want = getComputedStyle(document.documentElement).getPropertyValue('--steel').trim().toLowerCase();
+  const hex = (x) => '#' + (x.match(/\d+/g) || []).slice(0, 3)
+    .map((n) => (+n).toString(16).padStart(2, '0')).join('');
+  const hit = [...document.querySelectorAll('.board *')]
+    .filter((e) => e.offsetParent !== null && hex(getComputedStyle(e).backgroundColor) === want);
+  return { n: hit.length, allButtons: hit.every((e) => e.tagName === 'BUTTON') };
 });
-ok(boxes === 0, `no panels, cards or tinted blocks (${boxes} found)`);
-const accent = await page.evaluate(() => {
-  const probe = document.createElement('span');
-  probe.style.color = 'var(--accent)';
-  document.body.appendChild(probe);
-  const acc = getComputedStyle(probe).color;
-  probe.remove();
-  const uses = [...document.querySelectorAll('.wrap *')]
-    .filter((e) => getComputedStyle(e).color === acc && e.offsetParent !== null);
-  return { acc, count: uses.length, onBig: uses.filter((e) => e.closest('.q.big')).length };
-});
-ok(accent.count > 0, `the accent is actually applied somewhere (${accent.acc})`);
-ok(accent.count === 3 && accent.onBig === 3,
-   `accent used exactly on the first three questions and nowhere else (${accent.count} uses, ${accent.onBig} on .big)`);
-ok(await card(1).evaluate((e) => getComputedStyle(e).borderTopWidth === '1px'),
-   'entries are separated by a hairline, not boxed');
-// The section label's 88px IS the boundary; a rule under it would say the same
-// thing twice, in the same weight as the twelve that separate ordinary items.
-ok(await card(0).evaluate((e) => getComputedStyle(e).borderTopWidth === '0px'),
-   'the first entry under a section label carries no second boundary');
+ok(steel.n === 1, `the accent marks exactly one target (${steel.n})`);
+ok(steel.allButtons, 'and what it marks is interactive, never decoration');
+// UX_04: the priority lane must not look like the rest of the list.
+ok(await page.evaluate(() => {
+     const a = getComputedStyle(document.querySelector('.q.big'));
+     const b = getComputedStyle(document.querySelector('.q:not(.big)'));
+     return a.backgroundColor !== b.backgroundColor || a.borderLeftColor !== b.borderLeftColor;
+   }), 'the priority lane is visually distinct from the main list');
 
 console.log('\n=== recording: the state machine ===');
 await page.locator('#mic-q1').click();
@@ -227,7 +220,7 @@ ok((await card(0).locator('.clip .part').first().textContent()) === 'Part 1', 's
 
 await page.reload({ waitUntil: 'load' });
 await page.waitForTimeout(1100);
-ok((await page.locator('#tally').textContent()).includes('3 of 13 answered'), 'restored after reload');
+ok((await page.locator('#fig-answered').textContent()) === '3/13', 'restored after reload');
 ok(!(await page.locator('#restorefail').isVisible()), 'no false restore-failure banner');
 
 // The page warns that a screen lock can cut a recording off. Warning is not
@@ -250,7 +243,7 @@ ok(!(await page.locator('#mic-q1').isDisabled()), 'the mic lock was released');
 await visibility('visible');
 
 console.log('\n=== Send all offers only what has not gone ===');
-ok((await page.locator('#sendall').textContent()) === 'Send all 4',
+ok((await page.locator('#sendall').textContent()) === 'Text all 4 to Todd',
    'four recordings, four to send');
 await page.evaluate(() => {
   Object.defineProperty(navigator, 'canShare', { value: () => true, configurable: true });
@@ -262,7 +255,7 @@ ok((await card(0).locator('.clip').first().locator('.flag').textContent()) === '
    'the badge says handed off, never sent');
 ok(/check the message actually went/.test(await card(0).locator('.note').first().textContent()),
    'and the one thing the page cannot know is asked of him, per clip');
-ok((await page.locator('#sendall').textContent()) === 'Send all 3',
+ok((await page.locator('#sendall').textContent()) === 'Text all 3 to Todd',
    'Send all stops offering a recording that already went');
 
 console.log('\n=== a download is a request, not a receipt ===');
@@ -276,7 +269,7 @@ ok((await card(1).locator('.clip').first().locator('.flag').textContent()) === '
    'the fallback never claims the file was saved, let alone sent');
 ok(/nothing has been sent yet/.test(await card(1).locator('.note').first().textContent()),
    'the note is conditional about the save and flat about the send');
-ok((await page.locator('#sendall').textContent()) === 'Send all 3',
+ok((await page.locator('#sendall').textContent()) === 'Text all 3 to Todd',
    'a download did not quietly count as sent');
 
 console.log('\n=== a clip that cannot be restored is never silent ===');
@@ -392,9 +385,9 @@ const L = await wp.evaluate(() => {
   const ask = q.querySelector('.ask').getBoundingClientRect();
   const btn = q.querySelector('.row').getBoundingClientRect();
   const why = q.querySelector('.why');
-  const wrap = document.querySelector('.wrap').getBoundingClientRect();
+  const wrap = document.querySelector('.board').getBoundingClientRect();
   return {
-    hangingNumber: q.querySelector('.qnum').getBoundingClientRect().right <= ask.left + 1,
+    numberBesideAsk: q.querySelector('.qnum').getBoundingClientRect().right <= ask.left + 1,
     hScroll: document.documentElement.scrollWidth > innerWidth + 1,
     whyCh: (() => {
       const probe = document.createElement('span');
@@ -411,11 +404,21 @@ const L = await wp.evaluate(() => {
     bodyPx: parseFloat(getComputedStyle(document.body).fontSize),
   };
 });
-ok(L.hangingNumber, 'the number hangs in the margin beside the question');
+ok(L.numberBesideAsk, 'the number sits in its own column beside the question');
 ok(!L.hScroll, 'no horizontal scroll at 1920px');
 ok(L.whyCh >= 45 && L.whyCh <= 72, `line length stays readable on desktop (${L.whyCh}ch)`);
-ok(L.column >= 560 && L.column <= 660, `measure stays readable on desktop (${L.column}px)`);
-ok(L.bodyPx >= 16, `type scales up for desktop (${L.bodyPx}px)`);
+// Density, not stretch: more lanes and a bounded void, with the type scale
+// held fixed because UX_01 sets it by role, never by viewport.
+const D = await wp.evaluate(() => {
+  const b = document.querySelector('.board').getBoundingClientRect();
+  const lane = document.querySelector('.group:not(.lane)');
+  const cols = getComputedStyle(lane).gridTemplateColumns.split(' ').length;
+  return { gutter: Math.max(b.left, innerWidth - b.right), cols,
+           body: parseFloat(getComputedStyle(document.querySelector('.why')).fontSize) };
+});
+ok(D.gutter <= 320, `no unbounded void beside the content (${Math.round(D.gutter)}px gutter)`);
+ok(D.cols >= 2, `the list gains lanes rather than padding (${D.cols} columns)`);
+ok(D.body === 13, `the type scale is fixed by role, not by viewport (${D.body}px)`);
 await wp.screenshot({ path: '/tmp/intake-desktop.png' });
 await wide.close();
 

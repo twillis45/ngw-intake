@@ -3,237 +3,281 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#FBFBF9" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#14171A" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#070809">
 <title>Outreach Voice Brief</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;450;500;600&display=swap">
 <style>
+  /* Studio Matte. Tokens are transcribed from the binding source —
+     ngw-event-planner/src/theme/palette.js at ACTIVE_MODE = 'dark' — not
+     sampled from a neighbouring frame and not re-derived here.
+
+       carbonBody     #070809   canvas
+       carbonPanel    #121518   card
+       carbonSurface2 #171b1f   elevated
+       carbonBorder   #232830   border
+       carbonStrong   #2b3039   strong border
+       steelBlue      #4E6877   accent: structure + interactive
+       steelBlueMuted #6F8794   accent, safe as text
+       amber          #ECA13F   needs attention
+       dangerRed      #F27A70   critical / live
+       successGreen   #4FAE7A   safe / complete
+       text 1/2/muted #eef0f4 / #849eb8 / #9a9ca0
+
+     Dark is the only mode. Light is unbuilt by ruling (the brand audit
+     records that the system's dimensionality collapses in light and reads
+     as generic SaaS), so there is no light block here to drift. */
   :root {
-    --paper:#FBFBF9; --ink:#1A1D21; --ink-soft:#5A6068; --ink-faint:#8B9198;
-    --rule:#E2E1DC; --rule-hard:#1A1D21;
-    --accent:#9A5B00; --live:#9E2A33; --good:#1B5E44;
-    color-scheme: light dark;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --paper:#14171A; --ink:#E9E8E3; --ink-soft:#A7ACB2; --ink-faint:#787D84;
-      --rule:#2A2E33; --rule-hard:#E9E8E3;
-      --accent:#E0A64A; --live:#E8828E; --good:#63C39C;
-    }
-  }
-  :root[data-theme="dark"] {
-    --paper:#14171A; --ink:#E9E8E3; --ink-soft:#A7ACB2; --ink-faint:#787D84;
-    --rule:#2A2E33; --rule-hard:#E9E8E3;
-    --accent:#E0A64A; --live:#E8828E; --good:#63C39C;
+    --canvas:#070809; --card:#121518; --raised:#171b1f;
+    --border:#232830; --border-strong:#2b3039;
+    --steel:#4E6877; --steel-text:#6F8794;
+    --amber:#ECA13F; --crit:#F27A70; --safe:#4FAE7A;
+    --fg:#eef0f4; --fg-2:#849eb8; --muted:#9a9ca0;
+    color-scheme: dark;
   }
 
   * { box-sizing: border-box; }
-  html { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+  html { padding-top: env(safe-area-inset-top, 0px); }
   body {
-    margin: 0; background: var(--paper); color: var(--ink);
-    font-family: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
-    font-size: 16px; line-height: 1.5; font-weight: 400;
-    -webkit-tap-highlight-color: rgba(154,91,0,.14);
+    margin: 0; background: var(--canvas); color: var(--fg);
+    /* UX_01: system stack. No custom web fonts, no monospace for UI labels.
+       Tabular figures come from font-variant-numeric, which the system face
+       supports without a second download. */
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 14px; line-height: 1.45; font-weight: 400;
+    padding-bottom: 56px;
+    -webkit-tap-highlight-color: rgba(78,104,119,.2);
   }
   [hidden] { display: none !important; }
-  .wrap { max-width: 34rem; margin: 0 auto; padding-inline: 20px; padding-block: 40px 72px; }
 
-  /* Title: no bar, no box. Just the largest thing on the page. */
-  header { margin-bottom: 30px; }
-  h1 { font-size: 30px; font-weight: 600; letter-spacing: -.02em; line-height: 1.15;
-       margin: 0 0 9px; text-wrap: balance; }
-  .kicker { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11px;
-            letter-spacing: .14em; text-transform: uppercase; color: var(--ink-faint); }
+  .board { max-width: 448px; margin: 0 auto; padding: 16px 16px 24px;
+           display: grid; grid-template-columns: 1fr; gap: 16px;
+           grid-template-areas: "rail" "list" "how"; }
+  .rail { grid-area: rail; } .list { grid-area: list; } .how { grid-area: how; }
 
-  /* Instructions are prose, not a panel. */
-  .how { margin-bottom: 0; }
-  .how p { margin: 0 0 12px; }
-  .how p:last-child { margin-bottom: 0; }
-  .how .lead { font-size: 19px; font-weight: 500; line-height: 1.35; margin-bottom: 14px;
-               text-wrap: balance; }
-  .how .steps { list-style: none; margin: 0 0 14px; padding: 0; }
-  .how .steps li { position: relative; padding-left: 20px; margin-bottom: 4px; }
-  .how .steps li::before { content: ""; position: absolute; left: 4px; top: .68em;
-                           width: 5px; height: 1px; background: var(--ink-faint); }
-  .how .fine { list-style: none; margin: 22px 0 0; padding: 18px 0 0;
-               border-top: 1px solid var(--rule);
-               font-size: 14.5px; color: var(--ink-soft); }
-  .how .fine li { margin-bottom: 8px; }
-  .how .fine b, .how .better b { font-weight: 600; color: var(--ink); }
+  /* ── Zone 1: command header ───────────────────────────────────────── */
+  .rail > * + * { margin-top: 12px; }
+  h1 { font-size: 22px; font-weight: 700; letter-spacing: -.3px; line-height: 1.2;
+       margin: 0 0 4px; }
+  .sub { font-size: 13px; font-weight: 400; color: var(--muted); margin: 0; }
 
-  .warn { border-left: 2px solid var(--live); padding: 2px 0 2px 14px;
-          margin-bottom: 26px; font-size: 15px; color: var(--ink-soft); }
-  .warn b { color: var(--ink); }
+  /* Figures run as hairline rows, not tiles — UX_04's display-ask clause
+     allows it, and four tiles for two real numbers would be inventory. */
+  .ledger { display: flex; gap: 20px; border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border); padding: 8px 0; }
+  .fig { display: flex; flex-direction: column; gap: 4px; }
+  .fig .n { font-size: 24px; font-weight: 700; letter-spacing: -.5px; line-height: 1;
+            font-variant-numeric: tabular-nums; }
+  .label { font-size: 11px; font-weight: 600; letter-spacing: .5px;
+           text-transform: uppercase; color: var(--fg-2); }
 
-  /* Section labels sit in the flow as small caps, not as ruled dividers. */
-  h2 { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 12px; font-weight: 500;
-       letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft);
-       margin: 88px 0 14px; }
-  /* The 88px IS the boundary — a rule under the label would repeat it, and
-     repeat it in the same weight as the twelve that separate ordinary items. */
-  .group > .q:first-of-type { border-top: none; }
-  .group { display: flex; flex-direction: column; }
+  /* ── Containers. UX_04 4.4: no orphaned content on the canvas. ─────── */
+  .card { background: var(--card); border: 1px solid var(--border);
+          border-radius: 8px; padding: 16px; }
 
-  /* A question is a numbered entry in a list, not a card. Hairline between,
-     nothing around. The only emphasis is on the first three. */
-  .q { padding: 22px 0; border-top: 1px solid var(--rule);
-       display: grid; grid-template-columns: 2.1rem 1fr; column-gap: 2px; }
-  .q.big .qnum { color: var(--accent); font-weight: 500; }
-  .q.big .ask { font-weight: 600; }
-  .qnum { grid-column: 1; font-family: "IBM Plex Mono", ui-monospace, monospace;
-          font-size: 15px; color: var(--ink-soft); padding-top: 3px;
-          font-variant-numeric: tabular-nums; }
-  .qbody { grid-column: 2; display: flex; flex-direction: column; gap: 9px; }
-  .ask { font-size: 17px; font-weight: 500; line-height: 1.35; text-wrap: balance; }
-  .why { font-size: 14.5px; color: var(--ink-soft); text-wrap: pretty; }
-  .why b { font-weight: 600; color: var(--ink); }
+  .how p { margin: 0 0 8px; font-size: 13px; color: var(--fg-2); }
+  .how p.lead { font-size: 16px; font-weight: 600; color: var(--fg);
+                letter-spacing: -.2px; margin-bottom: 12px; }
+  .how ul { list-style: none; margin: 0 0 12px; padding: 0; }
+  .how li { position: relative; padding-left: 16px; margin-bottom: 4px;
+            font-size: 13px; color: var(--fg-2); }
+  .how li::before { content: ""; position: absolute; left: 0; top: .6em;
+                    width: 8px; height: 1px; background: var(--steel); }
+  .how .fine { margin: 12px 0 0; padding-top: 12px; border-top: 1px solid var(--border); }
+  .how b { font-weight: 600; color: var(--fg); }
 
-  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  .warn { background: var(--card); border: 1px solid var(--border);
+          border-left: 2px solid var(--amber); border-radius: 8px;
+          padding: 12px 16px; font-size: 13px; color: var(--fg-2); }
+  .warn b { color: var(--fg); font-weight: 600; display: block; margin-bottom: 4px; }
 
-  /* Controls are quiet until they matter. */
-  button { font: inherit; font-size: 14.5px; font-weight: 450; cursor: pointer;
-           border: 1px solid var(--rule); background: transparent; color: var(--ink-soft);
-           padding: 8px 13px; min-height: 44px; border-radius: 0;
-           touch-action: manipulation; transition: background-color .12s ease, color .12s ease; }
-  button:hover { background: var(--ink); color: var(--paper); }
-  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  button[disabled] { opacity: .35; cursor: not-allowed; }
-  button[disabled]:hover { background: transparent; color: var(--ink); }
-  .mic.live, .mic.live:hover { background: var(--live); border-color: var(--live); color: #fff; }
-  .mic:hover { border-color: var(--ink); }
-  .send { border-color: var(--good); color: var(--good); }
-  .send:hover { background: var(--good); border-color: var(--good); color: #fff; }
-  .danger.armed, .danger.armed:hover { background: var(--live); border-color: var(--live); color: #fff; }
+  /* ── Zone 2/3: the list ───────────────────────────────────────────── */
+  h2 { font-size: 11px; font-weight: 600; letter-spacing: .5px; text-transform: uppercase;
+       color: var(--fg-2); margin: 24px 0 8px; }
+  .group { display: flex; flex-direction: column; gap: 8px; }
 
-  .time { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 14.5px;
-          font-variant-numeric: tabular-nums; color: var(--ink-faint); }
-  .time.live { color: var(--live); }
+  .q { background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+       padding: 12px 16px; display: grid; grid-template-columns: 24px 1fr; column-gap: 8px; }
+  /* The priority lane reads as priority: raised surface + a steel edge.
+     Three items, which is the maximum UX_04 allows. */
+  .q.big { background: var(--raised); border-left: 2px solid var(--steel); }
+  .qnum { grid-column: 1; font-size: 11px; font-weight: 600; color: var(--fg-2);
+          font-variant-numeric: tabular-nums; padding-top: 4px; }
+  .qbody { grid-column: 2; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .ask { font-size: 16px; font-weight: 600; letter-spacing: -.2px; line-height: 1.3; }
+  .why { font-size: 13px; color: var(--fg-2); }
+  .why b { font-weight: 600; color: var(--fg); }
 
-  /* Direct evidence about the audio being written, not about dictation:
-     it is driven by the recorder's own stream, so a flat bar means a dead
-     microphone even when the phone is happily transcribing. */
-  .level { flex: none; width: 46px; height: 3px; background: var(--rule); overflow: hidden; }
-  .level i { display: block; height: 100%; width: 0; background: var(--live);
-             transform-origin: left center; }
-  .keepon { font-size: 14.5px; color: var(--live); flex: 1 1 100%; }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 
-  .flag { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11px;
-          letter-spacing: .08em; text-transform: uppercase; color: var(--good); }
-  .flag.local { color: var(--accent); }
+  /* ── Controls ─────────────────────────────────────────────────────── */
+  button { font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+           border: 1px solid var(--border-strong); background: transparent;
+           color: var(--fg); padding: 8px 12px; min-height: 44px; border-radius: 8px;
+           touch-action: manipulation; transition: background-color 150ms ease; }
+  button:hover { background: rgba(255,255,255,.04); }
+  button:active { background: rgba(255,255,255,.08); }
+  button:focus-visible { outline: 2px solid var(--steel-text); outline-offset: 2px; }
+  button[disabled] { opacity: .4; cursor: not-allowed; }
+  button[disabled]:hover { background: transparent; }
+  /* Steel is the one accent, and UX_02 reserves it for the primary
+     interactive target. One per section: the mic here, Send all below. */
+  .mic { background: transparent; border-color: var(--border-strong); color: var(--fg); }
+  /* One dominant starting point (UX_01 hierarchy): the first question of the
+     priority lane carries the accent fill, and nothing else in the list does.
+     Once a question has an answer it stops being the place to start. */
+  .q.big:first-of-type .mic:not(.live) { background: var(--steel); border-color: var(--steel); }
+  .q.big:first-of-type.has-rec .mic:not(.live) { background: transparent;
+                                                  border-color: var(--border-strong); }
+  .mic.live, .mic.live:hover { background: var(--crit); border-color: var(--crit); color: #16181b; }
+  .send { background: var(--steel); border-color: var(--steel); color: var(--fg); }
+  .send:hover { background: #56717f; }
+  .danger.armed, .danger.armed:hover { background: var(--crit); border-color: var(--crit);
+                                        color: #16181b; }
 
-  .clips { display: flex; flex-direction: column; gap: 12px; }
-  .clip { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
-  .part { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11px;
-          letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint); }
-  .clip audio { flex: 1 1 100%; width: 100%; min-width: 0; height: 34px; }
+  .time { font-size: 13px; font-variant-numeric: tabular-nums; color: var(--muted); }
+  .time.live { color: var(--crit); }
+  /* Evidence about the recorder's own stream, not about dictation. */
+  .level { flex: none; width: 48px; height: 4px; background: var(--border-strong);
+           border-radius: 8px; overflow: hidden; }
+  .level i { display: block; height: 100%; width: 0; background: var(--crit); }
+  .keepon { font-size: 13px; color: var(--crit); flex: 1 1 100%; }
+
+  .flag { font-size: 11px; font-weight: 600; letter-spacing: .5px; text-transform: uppercase;
+          color: var(--safe); }
+  .flag.local { color: var(--amber); }
+
+  .clips { display: flex; flex-direction: column; gap: 8px; }
+  .clip { background: var(--raised); border: 1px solid var(--border); border-radius: 8px;
+          padding: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .q.big .clip { background: var(--card); }
+  .part { font-size: 11px; font-weight: 600; letter-spacing: .5px; text-transform: uppercase;
+          color: var(--muted); }
+  .clip audio { flex: 1 1 100%; width: 100%; min-width: 0; height: 32px; }
   audio { width: 100%; min-width: 0; }
 
-  .said { flex: 1 1 100%; font-size: 14.5px; color: var(--ink-soft); line-height: 1.45;
-          border-left: 1px solid var(--rule); padding-left: 12px; margin-top: 2px; }
-  .said.pending { color: var(--ink-faint); font-style: italic; }
-  .err  { font-size: 14.5px; color: var(--live); flex: 1 1 100%; }
-  .note { font-size: 14.5px; color: var(--ink-soft); flex: 1 1 100%; }
+  .said { flex: 1 1 100%; font-size: 13px; color: var(--fg-2); line-height: 1.45;
+          border-left: 1px solid var(--border-strong); padding-left: 12px; }
+  .said.pending { color: var(--muted); font-style: italic; }
+  .err  { font-size: 13px; color: var(--crit); flex: 1 1 100%; }
+  .note { font-size: 13px; color: var(--fg-2); flex: 1 1 100%; }
 
-  .footer-bar { border-top: 1px solid var(--rule-hard); margin-top: 6px; padding-top: 16px;
-                display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
-  .tally { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 12px;
-           letter-spacing: .04em; color: var(--ink-faint); flex: 1 1 auto; }
-  .tallynote { font-size: 14.5px; color: var(--ink-soft); margin: 12px 0 0; }
+  /* ── Action block ─────────────────────────────────────────────────── */
+  .actions { margin-top: 24px; display: flex; flex-direction: column; gap: 8px; }
+  .actions .send { width: 100%; }
+  .tallynote, .sign { font-size: 13px; color: var(--fg-2); margin: 0; }
+  .sign b, .tallynote b { color: var(--fg); font-weight: 600; }
+  .contact { font-size: 13px; color: var(--fg-2); margin: 0; }
+  .contact a { color: var(--steel-text); font-weight: 600; text-decoration: underline;
+               text-underline-offset: 3px; }
 
-  .sign { font-size: 15px; color: var(--ink-soft); margin: 34px 0 0; }
-  .sign b { color: var(--ink); font-weight: 600; }
-  .contact { font-size: 15px; margin: 14px 0 0; color: var(--ink-soft); }
-  .contact b { color: var(--ink); font-weight: 600; }
-  .contact a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px;
-               text-decoration-thickness: 1px; }
-  .contact a:hover { color: var(--accent); }
-
-  /* The one instruction that has to survive scrolling. Everything else on this
-     page is optional; this line is the whole job. */
+  /* The one line that survives scrolling. */
   .standing { position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
-              background: var(--paper); border-top: 1px solid var(--rule-hard);
-              padding: 10px 20px calc(10px + env(safe-area-inset-bottom, 0px));
-              font-size: 14.5px; color: var(--ink-soft); text-align: center; }
-  .standing b { color: var(--ink); font-weight: 600; }
-  .standing a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px;
-                text-decoration-thickness: 1px; white-space: nowrap; }
-  body { padding-bottom: 64px; }
+              background: var(--raised); border-top: 1px solid var(--border-strong);
+              padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+              font-size: 13px; color: var(--fg-2); text-align: center; }
+  .standing b { color: var(--fg); font-weight: 600; }
+  .standing a { color: var(--steel-text); font-weight: 600; text-decoration: underline;
+                text-underline-offset: 3px; white-space: nowrap; }
 
-  @media (min-width: 720px) {
-    .wrap { max-width: 38rem; padding-block: 64px 96px; }
-    h1 { font-size: 36px; }
-    .how .lead { font-size: 21px; }
-    /* The number moves into the margin — a real hanging indent, not a chip. */
-    .q { grid-template-columns: 3rem 1fr; padding: 26px 0; }
-    .qnum { padding-top: 5px; }
+  /* ── Tablet and up: a board, not a stretched column. ──────────────────
+     The void budget is absolute above the phone — no empty region wider
+     than 320px — so the column cannot simply centre itself in 1440px with
+     400px of canvas running to each edge. The rail takes that space and
+     bounds it with content on two sides. */
+  @media (min-width: 768px) {
+    .board { max-width: 704px; padding: 24px; }
+  }
+  @media (min-width: 1024px) {
+    .board { max-width: min(1600px, 100% - 48px); padding: 24px 0;
+             grid-template-columns: 320px minmax(0, 1fr);
+             grid-template-rows: auto 1fr; gap: 24px;
+             grid-template-areas: "rail list" "how list"; align-items: start; }
+    .list { min-width: 0; }
+    .list > .group:first-of-type > h2:first-child, .list > h2:first-child { margin-top: 0; }
+    /* Denser, not wider: two lanes of questions once there is room. */
+    .group { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .group.lane { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .group > h2 { grid-column: 1 / -1; }
+  }
+  @media (min-width: 1440px) {
+    .group { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   }
 
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="board">
 
-  <header>
-    <h1>Talk, don’t type</h1>
-    <div class="kicker">Outreach visits &middot; 13 questions</div>
-  </header>
+  <div class="rail">
+    <header>
+      <h1>Talk, don’t type</h1>
+      <p class="sub">Outreach visits · 13 questions · answer any of them, in any order</p>
+    </header>
 
-  <div class="how">
-    <p class="lead">Just talk. I’ll sort out what goes where.</p>
-    <ul class="steps">
-      <li>Open <b>Voice Memos</b> and hit record</li>
-      <li>Answer anything that comes to mind &mdash; any order</li>
-      <li>No names, no numbers, no labeling</li>
-      <li>Send them over whenever</li>
-    </ul>
-    <p class="better"><b>Better still:</b> skip the list and talk me through the
-      whole job for twenty minutes. What I need most comes out mid-story, not in
-      reply to a question. Ramble &mdash; tangents are the good part.</p>
-    <ul class="fine">
-      <li>Transcript under the recording? Send that too.</li>
-      <li>Short answer? Hit <b>Record a short one</b> on a question below &mdash; it
-        files itself. Save Voice Memos for the long ones — if your phone
-        locks, a recording made here stops there and keeps only what you had.</li>
-      <li>Anything you record here stays in this browser on this phone until you
-        send it &mdash; open the link the same way each time.</li>
-      <li id="dictation-note" hidden>Your phone writes each one out as you talk, and the
-        text goes along with the audio. That part uses the same dictation your
-        keyboard uses, so it passes through Apple the way Messages dictation
-        does &mdash; the recording itself still goes nowhere but to me.</li>
-    </ul>
+    <div class="ledger">
+      <div class="fig"><span class="n" id="fig-answered">0/13</span><span class="label">Answered</span></div>
+      <div class="fig"><span class="n" id="fig-clips">0</span><span class="label">Recordings</span></div>
+    </div>
+
+
+    <div class="warn" id="insecure" hidden>
+      <b>Recording needs a secure connection.</b> Open this page over https and the
+      record buttons will work.
+    </div>
+    <div class="warn" id="unsupported" hidden>
+      <b>This browser can’t record here.</b> Use your phone’s voice memo app instead
+      and send them over. The questions below are the same.
+    </div>
+    <div class="warn" id="restorefail" hidden>
+      <b>Couldn’t read what you recorded before.</b> Don’t record over it yet &mdash;
+      text me first, it may still be there.
+    </div>
   </div>
 
-  <div class="warn" id="insecure" hidden>
-    <b>Recording needs a secure connection.</b> Open this page over https and the
-    record buttons will work.
-  </div>
-  <div class="warn" id="unsupported" hidden>
-    <b>This browser can’t record here.</b> No problem &mdash; use your phone’s voice memo
-    app instead and send them over. The questions below are the same.
-  </div>
-  <div class="warn" id="restorefail" hidden>
-    <b>Couldn’t read what you recorded before.</b> Don’t record over it yet &mdash;
-    text me first, it may still be there.
-  </div>
+  <main class="list">
+    <div id="questions"></div>
 
-  <div id="questions"></div>
+    <div class="actions">
+      <button type="button" id="sendall" class="send" hidden>Text them to Todd</button>
+      <div class="err" id="sendall-err" hidden></div>
+      <p class="tallynote" id="tally" aria-live="polite">Nothing recorded on this page yet.</p>
+      <p class="tallynote">Recording in Voice Memos instead? This counter won’t see
+        those &mdash; that’s fine, it’s the better way. It only counts what you
+        recorded <b>on this page, in this browser</b>; open the link in a different
+        app or a private window and it starts back at zero even though nothing
+        was lost.</p>
+      <p class="sign"><b>No rush, no order, no labels.</b> The first three get me most
+        of the way.</p>
+      <p class="contact">Stuck, or something looks wrong? Text me &mdash;
+        <a id="contact-me" href="sms:+12404325650">(240)&nbsp;432-5650</a></p>
+    </div>
+  </main>
 
-  <div class="footer-bar">
-    <div class="tally" id="tally" aria-live="polite">0 of 13 answered</div>
-    <button type="button" id="sendall" class="send" hidden>Send all</button>
-  </div>
-  <div class="err" id="sendall-err" hidden></div>
-  <p class="tallynote">Recording in Voice Memos instead? This counter won’t see those
-    &mdash; that’s fine, it’s the better way. It only counts what you recorded
-    <b>on this page, in this browser</b>; open the link in a different app or a
-    private window and it starts back at zero even though nothing was lost.</p>
+  <section class="card how">
+      <p class="lead">Just talk. I’ll sort out what goes where.</p>
+      <ul>
+        <li>Open <b>Voice Memos</b> and hit record</li>
+        <li>Answer anything that comes to mind &mdash; any order</li>
+        <li>No names, no numbers, no labeling</li>
+        <li>Send them over whenever</li>
+      </ul>
+      <p><b>Better still:</b> skip the list and talk me through the whole job for
+        twenty minutes. What I need most comes out mid-story, not in reply to a
+        question. Ramble &mdash; tangents are the good part.</p>
+      <ul class="fine">
+        <li>Transcript under the recording? Send that too.</li>
+        <li>Short answer? Hit <b>Record</b> on a question &mdash; it files itself. Save
+          Voice Memos for the long ones: if your phone locks, a recording made
+          here stops there and keeps only what you had.</li>
+        <li>Anything you record here stays in this browser on this phone until
+          you send it.</li>
+        <li id="dictation-note" hidden>Your phone writes each one out as you talk, and
+          the text goes along with the audio. That uses the same dictation your
+          keyboard uses, so it passes through Apple the way Messages dictation
+          does &mdash; the recording itself goes nowhere but to me.</li>
+      </ul>
+  </section>
 
-  <p class="sign"><b>No rush, no order, no labels.</b> The first three get me most of the way.</p>
-  <p class="contact">Stuck, or something looks wrong? <b>Text me &mdash;
-    <a id="contact-me" href="sms:+12404325650">(240)&nbsp;432-5650</a></b></p>
 </div>
 
 <div class="standing" id="standing">
@@ -376,10 +420,11 @@
   var group = null;
   QUESTIONS.forEach(function (q) {
     if (q.group) {
-      group = el("div", "group");
+      // The first group is the priority lane — three items, the maximum
+      // UX_04 allows, and it lays out three-up rather than two.
+      group = el("div", "group" + (q.big ? " lane" : ""));
       group.appendChild(el("h2", null, q.group));
       host.appendChild(group);
-      group.style.marginBottom = "18px";
     }
     var card = el("article", "q" + (q.big ? " big" : ""));
     // The number hangs in the margin like a numbered list, not a badge. He is
@@ -394,7 +439,7 @@
     body.appendChild(clips);
 
     var row = el("div", "row");
-    var mic = el("button", "mic", "Record a short one");
+    var mic = el("button", "mic", "Record");
     mic.type = "button";
     mic.id = "mic-" + q.id;
     if (!canRecord) mic.disabled = true;
@@ -448,7 +493,7 @@
     var dur = el("span", "time", clip.ms ? fmt(clip.ms) : "");
     var audio = document.createElement("audio");
     audio.controls = true; audio.preload = "metadata"; audio.src = url;
-    var send = el("button", "send", "Send to Todd"); send.type = "button";
+    var send = el("button", "send", "Text it to Todd"); send.type = "button";
     var del = el("button", "danger", "Delete"); del.type = "button";
     var flag = el("span", "flag", ""); flag.hidden = true;
 
@@ -524,7 +569,7 @@
     del_(rec.key);
     if (!c.clips.length) {
       c.card.classList.remove("has-rec");
-      c.mic.textContent = "Record a short one";
+      c.mic.textContent = "Record";
     }
     renumber(id);
     tally();
@@ -752,7 +797,7 @@
   function resetBtn(c) {
     c.mic.classList.remove("live");
     c.mic.disabled = !canRecord;
-    c.mic.textContent = c.clips.length ? "Add another" : "Record a short one";
+    c.mic.textContent = c.clips.length ? "Add another" : "Record";
   }
 
   // The page warns that a screen lock can cut a recording off. Warning is not
@@ -862,7 +907,7 @@
         .catch(function (e) {
           if (e && e.name === "AbortError") return;
           errEl.className = "err";
-          errEl.textContent = "That didn\u2019t send \u2014 use Send to Todd on each recording instead.";
+          errEl.textContent = "That didn\u2019t send \u2014 use Text it to Todd on each recording instead.";
           errEl.hidden = false;
         });
       return;
@@ -870,8 +915,8 @@
 
     errEl.className = "err";
     errEl.textContent = files.length > 1
-      ? "This browser won\u2019t send " + files.length + " files at once \u2014 use Send to Todd on each recording instead."
-      : "Sharing isn\u2019t available here \u2014 use Send to Todd on each recording instead.";
+      ? "This browser won\u2019t send " + files.length + " files at once \u2014 use Text it to Todd on each recording instead."
+      : "Sharing isn\u2019t available here \u2014 use Text it to Todd on each recording instead.";
     errEl.hidden = false;
   }
 
@@ -882,13 +927,17 @@
     var ids = Object.keys(cards);
     var answered = ids.filter(function (i) { return cards[i].clips.length > 0; }).length;
     var total = ids.reduce(function (n, i) { return n + cards[i].clips.length; }, 0);
-    var t = answered + " of " + ids.length + " answered";
-    if (total > answered) t += "  \u00b7  " + total + " recordings";
-    document.getElementById("tally").textContent = t;
-    var sa = document.getElementById("sendall");
+    document.getElementById("fig-answered").textContent = answered + "/" + ids.length;
+    document.getElementById("fig-clips").textContent = String(total);
     var pending = allClips().length;
+    // UX_06: a status says what it means for him, not just its own number.
+    document.getElementById("tally").textContent =
+      total === 0 ? "Nothing recorded on this page yet."
+      : pending === 0 ? "Everything recorded here has been handed off."
+      : pending + (pending === 1 ? " recording" : " recordings") + " still to send.";
+    var sa = document.getElementById("sendall");
     sa.hidden = pending === 0;
-    sa.textContent = pending === 1 ? "Send it" : "Send all " + pending;
+    sa.textContent = pending === 1 ? "Text it to Todd" : "Text all " + pending + " to Todd";
   }
 
   // ---- restore ------------------------------------------------------------
