@@ -166,6 +166,34 @@
   .contact { font-size: 14.5px; margin: 0; padding-top: 12px; border-top: 1px solid var(--rule-soft); }
   .contact a { color: var(--amber); }
 
+  /* Desktop is not a second design — it is the same page with room to breathe.
+     Wider column, larger type, and the control moved beside the question so the
+     width carries something instead of sitting empty to its right. */
+  @media (min-width: 760px) {
+    body { font-size: 16px; }
+    .wrap { max-width: 720px; padding-inline: 24px; padding-block: 40px 72px; gap: 26px; }
+
+    .strip { padding: 20px 24px; align-items: center; }
+    .strip h1 { font-size: 44px; }
+
+    .how { padding: 22px 24px; }
+    .how .lead { font-size: 32px; margin-bottom: 14px; }
+    .how .better, .how .fine li { max-width: 62ch; }
+    .how .steps li { font-size: 16px; }
+
+    .q { padding: 18px 20px; display: grid; column-gap: 22px;
+         grid-template-columns: minmax(0, 1fr) auto; align-items: start; }
+    .qhead { grid-column: 1; grid-row: 1; }
+    .why    { grid-column: 1; grid-row: 2; max-width: 60ch; }
+    .q > .row { grid-column: 2; grid-row: 1 / span 2; align-self: start; margin-top: 2px; }
+    .clips  { grid-column: 1 / -1; grid-row: 3; }
+    .q > .err, .q > .note { grid-column: 1 / -1; grid-row: 4; }
+    .keepon { flex: 1 1 100%; }
+
+    .check p, .sign, .tallynote, .contact { max-width: 62ch; }
+    textarea { min-height: 150px; }
+  }
+
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>

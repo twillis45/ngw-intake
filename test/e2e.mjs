@@ -194,6 +194,33 @@ const bg = await dp.evaluate(() => getComputedStyle(document.body).backgroundCol
 ok(bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent', `dark theme paints its own ground (${bg})`);
 await dp.screenshot({ path: '/tmp/intake-dark.png' });
 
+console.log('\n=== desktop layout ===');
+const wide = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
+const wp = await wide.newPage();
+await wp.goto('http://localhost:8731/', { waitUntil: 'load' });
+await wp.waitForTimeout(400);
+const L = await wp.evaluate(() => {
+  const q = document.querySelector('article.q');
+  const ask = q.querySelector('.qhead').getBoundingClientRect();
+  const btn = q.querySelector('.row').getBoundingClientRect();
+  const why = q.querySelector('.why');
+  const wrap = document.querySelector('.wrap').getBoundingClientRect();
+  return {
+    besideNotBelow: btn.left > ask.right - 1 && btn.top < ask.bottom + 8,
+    hScroll: document.documentElement.scrollWidth > innerWidth + 1,
+    whyCapped: getComputedStyle(why).maxWidth !== 'none',
+    column: Math.round(wrap.width),
+    bodyPx: parseFloat(getComputedStyle(document.body).fontSize),
+  };
+});
+ok(L.besideNotBelow, 'the control sits beside the question, not stranded under it');
+ok(!L.hScroll, 'no horizontal scroll at 1920px');
+ok(L.whyCapped, 'body text measure is capped rather than running the full column');
+ok(L.column >= 700 && L.column <= 760, `column widens for desktop (${L.column}px)`);
+ok(L.bodyPx >= 16, `type scales up for desktop (${L.bodyPx}px)`);
+await wp.screenshot({ path: '/tmp/intake-desktop.png' });
+await wide.close();
+
 console.log('\n=== console ===');
 const real = errors.filter((e) => !/ERR_CERT_AUTHORITY_INVALID/.test(e));
 ok(real.length === 0, real.length ? 'page errors: ' + real.join(' | ')
