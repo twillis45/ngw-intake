@@ -297,6 +297,7 @@
     var audio = document.createElement("audio");
     audio.controls = true;
     audio.preload = "metadata";
+    audio.hidden = true;            // no dead player before there is a clip
     var send = el("button", "send", "Send to Todd"); send.type = "button";
     var save = el("button", null, "Save"); save.type = "button";
     var again = el("button", null, "Redo"); again.type = "button";
@@ -332,6 +333,7 @@
     c.url = URL.createObjectURL(clip.blob);
     c.audio.src = c.url;
     c.after.hidden = false;
+    c.audio.hidden = false;
     c.card.classList.add("has-rec");
     c.mic.hidden = true;
     c.time.textContent = clip.ms ? fmt(clip.ms) : "";
@@ -422,7 +424,10 @@
   function redo(id) {
     var c = cards[id];
     if (c.url) { URL.revokeObjectURL(c.url); c.url = null; }
-    c.clip = null; c.audio.removeAttribute("src");
+    c.clip = null;
+    c.audio.removeAttribute("src");
+    c.audio.load();                 // drop the decoded buffer, not just the src
+    c.audio.hidden = true;
     c.after.hidden = true; c.flag.hidden = true; c.err.hidden = true;
     c.card.classList.remove("has-rec");
     c.mic.hidden = false; c.mic.textContent = "Record";
