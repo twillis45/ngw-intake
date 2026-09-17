@@ -141,6 +141,12 @@
   .vtag.heard  { color: var(--cleared); background: var(--cleared-fill); }
   .vtag.maybe  { color: var(--amber);   background: var(--amber-fill); }
   .vtag.missing{ color: var(--live);    background: var(--live-fill); }
+  .vrow { flex-wrap: wrap; }
+  .quotes { flex: 1 1 100%; margin: 4px 0 0; padding-left: 18px;
+            display: flex; flex-direction: column; gap: 4px; }
+  .quotes li { font-size: 13.5px; color: var(--ink-soft); line-height: 1.4; }
+  .gap { font-size: 13.5px; color: var(--ink-faint); flex: 1 1 100%;
+         padding-left: 18px; font-style: italic; }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
@@ -189,10 +195,12 @@
     <h3>Optional &mdash; check yourself</h3>
     <p>Paste a transcript here and I'll guess which questions it covers. It stays
       on your phone; nothing is sent anywhere. It's a <b>rough</b> guess &mdash;
-      if it calls something missing that you know you answered, ignore it.</p>
+      if it calls something missing that you know you answered, ignore it. It quotes
+      you back rather than paraphrasing, so you can see exactly what registered.</p>
     <textarea id="tx" placeholder="Paste a transcript&hellip;"></textarea>
     <div class="row">
       <button type="button" id="checkbtn">Check coverage</button>
+      <button type="button" id="copybtn" hidden>Copy synopsis</button>
       <button type="button" id="clearbtn">Clear</button>
     </div>
     <div class="verdict" id="verdict"></div>
@@ -572,6 +580,27 @@
     q13: ["get wrong","learn the hard way","mistake","didn't realize","did not realize","advice","biggest thing","took me years"]
   };
 
+  // Extractive, never generative. A keyword matcher cannot write a synopsis —
+  // it can only hand back what he actually said, which is checkable.
+  function sentences(raw) {
+    return raw.replace(/\s+/g, " ").split(/(?<=[.!?])\s+|\n+/)
+      .map(function (x) { return x.trim(); })
+      .filter(function (x) { return x.length > 25; });
+  }
+  function quotesFor(sents, terms) {
+    var scored = sents.map(function (sen) {
+      var low = sen.toLowerCase();
+      var n = terms.filter(function (t) { return low.indexOf(t) !== -1; }).length;
+      return { sen: sen, n: n };
+    }).filter(function (x) { return x.n > 0; });
+    scored.sort(function (a, b) { return b.n - a.n; });
+    return scored.slice(0, 2).map(function (x) {
+      return x.sen.length > 220 ? x.sen.slice(0, 217) + "\u2026" : x.sen;
+    });
+  }
+
+  var lastSynopsis = "";
+
   function checkCoverage() {
     var raw = document.getElementById("tx").value || "";
     var text = raw.toLowerCase();
@@ -581,7 +610,7 @@
       out.appendChild(el("p", null, "Paste a bit more and I'll have something to go on."));
       return;
     }
-    var heard = 0;
+    var heard = 0, sents = sentences(raw), lines = [], gaps = [];
     QUESTIONS.forEach(function (q) {
       var terms = SIGNALS[q.id] || [];
       var hits = terms.filter(function (t) { return text.indexOf(t) !== -1; }).length;
@@ -591,8 +620,32 @@
       var row = el("div", "vrow");
       row.appendChild(el("span", "vtag " + cls, label));
       row.appendChild(el("span", null, "<b>Q" + q.id.slice(1) + "</b> &nbsp;" + q.ask));
+      if (hits > 0) {
+        var qs = quotesFor(sents, terms);
+        if (qs.length) {
+          var ul = el("ul", "quotes");
+          qs.forEach(function (t) {
+            var li = document.createElement("li");
+            li.textContent = "\u201C" + t + "\u201D";
+            ul.appendChild(li);
+          });
+          row.appendChild(ul);
+          lines.push("Q" + q.id.slice(1) + " — " + q.ask.replace(/<[^>]+>/g, ""));
+          qs.forEach(function (t) { lines.push("  • " + t); });
+          lines.push("");
+        }
+      } else {
+        var g = el("div", "gap");
+        g.textContent = "nothing in the transcript looked like an answer to this";
+        row.appendChild(g);
+        gaps.push("Q" + q.id.slice(1) + " — " + q.ask.replace(/<[^>]+>/g, ""));
+      }
       out.appendChild(row);
     });
+
+    if (gaps.length) { lines.push("Not seen:"); gaps.forEach(function (g) { lines.push("  • " + g); }); }
+    lastSynopsis = lines.join("\n");
+    document.getElementById("copybtn").hidden = !lastSynopsis;
     out.insertBefore(
       el("p", null, "Looks like <b>" + heard + " of " + QUESTIONS.length +
         "</b> came through. Anything marked <b>not seen</b> is worth a look &mdash; " +
@@ -601,9 +654,22 @@
   }
 
   document.getElementById("checkbtn").addEventListener("click", checkCoverage);
+  document.getElementById("copybtn").addEventListener("click", function () {
+    var btn = this;
+    var done = function () { btn.textContent = "Copied"; setTimeout(function () { btn.textContent = "Copy synopsis"; }, 1600); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(lastSynopsis).then(done, function () {
+        document.getElementById("tx").value = lastSynopsis; done();
+      });
+    } else {
+      document.getElementById("tx").value = lastSynopsis; done();
+    }
+  });
   document.getElementById("clearbtn").addEventListener("click", function () {
     document.getElementById("tx").value = "";
     document.getElementById("verdict").textContent = "";
+    document.getElementById("copybtn").hidden = true;
+    lastSynopsis = "";
   });
 
   function tally() {

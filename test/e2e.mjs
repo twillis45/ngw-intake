@@ -147,7 +147,22 @@ ok(heardNow <= 3, `a single answer does not light up the whole list (${heardNow}
 ok(/not comprehension/.test(await page.locator('#verdict').textContent()),
    'states its own limitation in the result');
 
+console.log('\n=== synopsis quotes him back ===');
+const quoted = await page.locator('.vrow').first().locator('.quotes li').allTextContents();
+ok(quoted.length >= 1, `Q1 shows what registered (${quoted.length} quote(s))`);
+ok(/facility manager|signs off|released by their facility/.test(quoted.join(' ')),
+   'the quote is the sentence that actually answered it');
+// Extractive, not generative: every quoted line must appear in what he pasted.
+const pasted = await page.locator('#tx').inputValue();
+const norm = (x) => x.replace(/[\u201C\u201D"]/g, '').replace(/\s+/g, ' ').trim();
+ok(quoted.every((q) => norm(pasted).includes(norm(q).replace(/\u2026$/, ''))),
+   'every quote is verbatim from the transcript — nothing invented');
+const gapCount = await page.locator('.gap').count();
+ok(gapCount >= 10, `unanswered questions say so plainly (${gapCount} marked)`);
+ok(await page.locator('#copybtn').isVisible(), 'Copy synopsis offered once there is one');
+
 await page.locator('#clearbtn').click();
+ok(!(await page.locator('#copybtn').isVisible()), 'Copy hidden again after Clear');
 ok((await page.locator('#verdict').textContent()).trim() === '', 'Clear empties the verdict');
 ok((await page.locator('#tx').inputValue()) === '', 'Clear empties the box');
 
