@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#EFF1F4" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#12181E" media="(prefers-color-scheme: dark)">
 <title>Outreach Voice Brief</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -42,27 +44,39 @@
     margin: 0; background: var(--ground); color: var(--ink);
     font-family: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
     font-size: 15px; line-height: 1.45;
+    -webkit-tap-highlight-color: rgba(179,116,0,.18);
   }
   [hidden] { display: none !important; }
 
   .wrap { max-width: 640px; margin: 0 auto; padding-inline: 16px; padding-block: 24px 56px;
           display: flex; flex-direction: column; gap: 22px; }
 
-  .strip { background: var(--strip); color: var(--strip-ink); border-left: 6px solid var(--amber);
+  /* The rail marks ONE thing: the three questions that matter most. Everywhere
+     else it was decoration on blocks that already carry their own fill. */
+  .strip { background: var(--strip); color: var(--strip-ink);
            padding: 14px 16px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
-  .strip .call { font-family: "Barlow Condensed","Arial Narrow",sans-serif; font-weight: 700;
-                 font-size: clamp(28px,7.5vw,40px); letter-spacing: .02em; line-height: 1; text-transform: uppercase; }
+  .strip h1 { font-family: "Barlow Condensed","Arial Narrow",sans-serif; font-weight: 700;
+              font-size: clamp(28px,7.5vw,40px); letter-spacing: .02em; line-height: 1;
+              text-transform: uppercase; margin: 0; text-wrap: balance; }
   .strip .meta { font-family: "IBM Plex Mono",ui-monospace,monospace; font-size: 11px;
                  letter-spacing: .12em; text-transform: uppercase; color: var(--strip-meta); margin-left: auto; }
 
-  .how { background: var(--amber-fill); border-left: 3px solid var(--amber); padding: 13px 15px; }
-  .how ol { margin: 8px 0 0; padding-left: 20px; display: flex; flex-direction: column; gap: 5px; }
-  .how li { font-size: 14.5px; }
-  .how .alt { margin-top: 11px; padding-top: 10px; border-top: 1px solid rgba(179,116,0,.28);
-              font-size: 14px; }
-  .how p { margin: 0 0 7px; } .how p:last-child { margin: 0; } .how b { font-weight: 600; }
+  .how { background: var(--amber-fill); padding: 14px 16px; }
+  .how p { margin: 0; }
+  .how .lead { font-family: "Barlow Condensed","Arial Narrow",sans-serif; font-weight: 700;
+               font-size: clamp(24px,6.5vw,30px); line-height: 1.05; margin: 0 0 11px;
+               text-wrap: balance; }
+  .how .steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+  .how .steps li { font-size: 15px; display: flex; gap: 9px; align-items: baseline; }
+  .how .steps li::before { content: "\2192"; color: var(--amber); font-weight: 700; flex: none; }
+  .how .better { margin-top: 12px; }
+  .how .fine { list-style: none; margin: 12px 0 0; padding: 10px 0 0;
+               border-top: 1px solid rgba(179,116,0,.3);
+               display: flex; flex-direction: column; gap: 6px; }
+  .how .fine li { font-size: 13px; color: var(--ink-soft); line-height: 1.4; }
+  .how .fine b { color: var(--ink); }
 
-  .warn { background: var(--live-fill); border-left: 3px solid var(--live); padding: 13px 15px; color: var(--ink); }
+  .warn { background: var(--live-fill); padding: 13px 15px; color: var(--ink); font-size: 14.5px; }
 
   h2 { font-family: "IBM Plex Mono",ui-monospace,monospace; font-size: 11px; font-weight: 600;
        letter-spacing: .16em; text-transform: uppercase; color: var(--ink-faint);
@@ -76,10 +90,9 @@
   .q.big { border-left: 3px solid var(--amber); }
   .q.has-rec { background: var(--panel-done); }
   .qhead { display: flex; align-items: baseline; gap: 10px; }
-  .qnum { flex: none; font-family: "IBM Plex Mono",ui-monospace,monospace;
-          font-size: 12px; font-weight: 600; letter-spacing: .06em;
-          color: var(--amber); background: var(--amber-fill);
-          padding: 3px 7px; border-radius: 2px; }
+  .qnum { flex: none; font-family: "IBM Plex Mono",ui-monospace,monospace; font-size: 12px;
+          font-weight: 600; letter-spacing: .06em; color: var(--amber);
+          background: var(--amber-fill); padding: 3px 7px; }
   .ask { font-size: 16px; font-weight: 500; text-wrap: balance; }
   .why { font-size: 13.5px; color: var(--ink-soft); }
   .why b { font-weight: 600; color: var(--ink); }
@@ -88,82 +101,101 @@
 
   button { font: inherit; font-size: 14px; cursor: pointer; border-radius: 2px;
            border: 1px solid var(--ink-faint); background: transparent; color: var(--ink);
-           padding: 9px 14px; min-height: 42px; }
+           padding: 9px 14px; min-height: 44px; touch-action: manipulation;
+           transition: background-color .12s ease, border-color .12s ease; }
+  button:hover { background: var(--amber-fill); border-color: var(--amber); }
+  button:active { background: var(--amber-fill); }
   button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
-  button[disabled] { opacity: .4; cursor: not-allowed; }
+  button[disabled] { opacity: .45; cursor: not-allowed; }
+  button[disabled]:hover { background: transparent; border-color: var(--ink-faint); }
   .mic { border-color: var(--ink); font-weight: 600; }
   .mic.live { background: var(--live); border-color: var(--live); color: #fff; }
+  .mic.live:hover { background: var(--live); border-color: var(--live); }
   .send { background: var(--cleared); border-color: var(--cleared); color: #fff; font-weight: 600; }
+  .send:hover { background: var(--cleared); border-color: var(--cleared); filter: brightness(1.08); }
+  .danger.armed { background: var(--live); border-color: var(--live); color: #fff; font-weight: 600; }
+  .danger.armed:hover { background: var(--live); border-color: var(--live); }
 
   .time { font-family: "IBM Plex Mono",ui-monospace,monospace; font-size: 15px;
           font-variant-numeric: tabular-nums; color: var(--ink-soft); }
   .time.live { color: var(--live); font-weight: 600; }
+  .keepon { font-size: 12.5px; color: var(--live); flex: 1 1 100%; }
 
-  .sent { font-family: "IBM Plex Mono",ui-monospace,monospace; font-size: 11px; font-weight: 600;
-          letter-spacing: .12em; text-transform: uppercase; color: var(--cleared);
-          background: var(--cleared-fill); padding: 3px 7px; }
+  .flag { font-family: "IBM Plex Mono",ui-monospace,monospace; font-size: 10px; font-weight: 600;
+          letter-spacing: .1em; text-transform: uppercase; padding: 3px 7px;
+          color: var(--cleared); background: var(--cleared-fill); }
+  .flag.local { color: var(--amber); background: var(--amber-fill); }
 
   .clips { display: flex; flex-direction: column; gap: 10px; }
   .clip { display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
           padding-top: 10px; border-top: 1px solid var(--rule-soft); }
   .clip:first-child { border-top: none; padding-top: 0; }
-  .part { font-family: "IBM Plex Mono",ui-monospace,monospace; font-size: 11px;
-          font-weight: 600; letter-spacing: .12em; text-transform: uppercase;
-          color: var(--ink-faint); }
+  .part { font-family: "IBM Plex Mono",ui-monospace,monospace; font-size: 11px; font-weight: 600;
+          letter-spacing: .12em; text-transform: uppercase; color: var(--ink-faint); }
   .clip audio { flex: 1 1 100%; width: 100%; min-width: 0; }
   audio { width: 100%; min-width: 0; }
 
-  .err { font-size: 13.5px; color: var(--live); }
-
-  .tally { font-family: "IBM Plex Mono",ui-monospace,monospace; font-size: 12px; color: var(--ink-faint);
-           border-top: 2px solid var(--ink); padding-top: 12px; }
-  .sign { font-size: 14.5px; color: var(--ink-soft); margin: 0; }
-  .sign b { color: var(--ink); font-weight: 600; }
+  .err  { font-size: 13.5px; color: var(--live); flex: 1 1 100%; }
+  .note { font-size: 13.5px; color: var(--ink-soft); flex: 1 1 100%; }
 
   .footer-bar { border-top: 2px solid var(--ink); padding-top: 12px;
                 display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
-  .footer-bar .tally { border-top: none; padding-top: 0; flex: 1 1 auto; }
+  .tally { font-family: "IBM Plex Mono",ui-monospace,monospace; font-size: 12px;
+           color: var(--ink-faint); flex: 1 1 auto; }
+  .tallynote { font-size: 12.5px; color: var(--ink-faint); }
+
   .check { border-top: 2px solid var(--ink); padding-top: 14px;
            display: flex; flex-direction: column; gap: 10px; }
-  .check h3 { margin: 0; font-family: "IBM Plex Mono",ui-monospace,monospace;
-              font-size: 11px; font-weight: 600; letter-spacing: .16em;
-              text-transform: uppercase; color: var(--ink-faint); }
+  .check h2 { margin-bottom: 2px; }
   .check p { margin: 0; font-size: 14px; color: var(--ink-soft); }
-  textarea { width: 100%; min-height: 110px; padding: 11px; font: inherit;
-             font-size: 14px; color: var(--ink); background: var(--panel);
-             border: 1px solid var(--rule-soft); border-radius: 2px; resize: vertical; }
+  label.fieldlabel { font-size: 13px; color: var(--ink-faint);
+                     font-family: "IBM Plex Mono",ui-monospace,monospace;
+                     letter-spacing: .08em; text-transform: uppercase; }
+  textarea { width: 100%; min-height: 110px; padding: 11px; font: inherit; font-size: 14px;
+             color: var(--ink); background: var(--panel); border: 1px solid var(--rule-soft);
+             border-radius: 2px; resize: vertical; }
   textarea:focus-visible { outline: 2px solid var(--amber); outline-offset: 1px; }
   .verdict { display: flex; flex-direction: column; gap: 7px; }
-  .vrow { display: flex; gap: 9px; align-items: baseline; font-size: 14px; }
-  .vrow { flex-wrap: wrap; }
+  .vrow { display: flex; flex-wrap: wrap; gap: 9px; align-items: baseline; font-size: 14px; }
   .quotes { flex: 1 1 100%; margin: 4px 0 0; padding-left: 18px;
             display: flex; flex-direction: column; gap: 4px; }
   .quotes li { font-size: 13.5px; color: var(--ink-soft); line-height: 1.4; }
+
+  .sign { font-size: 14.5px; color: var(--ink-soft); margin: 0; }
+  .sign b { color: var(--ink); font-weight: 600; }
+  .contact { font-size: 14.5px; margin: 0; padding-top: 12px; border-top: 1px solid var(--rule-soft); }
+  .contact a { color: var(--amber); }
+
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
 <body>
 <div class="wrap">
 
-  <div class="strip">
-    <span class="call">Talk, don't type</span>
+  <header class="strip">
+    <h1>Talk, don’t type</h1>
     <span class="meta">Outreach visits</span>
-  </div>
+  </header>
 
   <div class="how">
-    <p><b>Just talk. Don't label anything.</b> Open Voice Memos, hit record,
-      answer whatever you feel like answering, send them over. Any order, no
-      names, no numbers &mdash; I'll work out which answer goes where.</p>
-    <p class="alt"><b>Or skip the list entirely.</b> Hit record and talk me
-      through how you run these visits for twenty minutes straight. Honestly
-      that's better than thirteen separate answers &mdash; the stuff I most need
-      tends to come out in the middle of a story, not in reply to a question.</p>
-    <p class="alt">Ramble. Tangents are the good part. If a transcript shows up
-      under the recording, send that along too &mdash; saves me a step.</p>
-    <p class="alt"><b>Quick one instead?</b> Hit <b>Record</b> on any question
-      below and it records right here, already filed. Good for short answers.
-      For the long ones use Voice Memos &mdash; if the phone locks or you switch
-      apps, a web recording can get cut off.</p>
+    <p class="lead">Just talk. I’ll sort out what goes where.</p>
+    <ul class="steps">
+      <li>Open <b>Voice Memos</b> and hit record</li>
+      <li>Answer anything that comes to mind &mdash; any order</li>
+      <li>No names, no numbers, no labelling</li>
+      <li>Send them over whenever</li>
+    </ul>
+    <p class="better"><b>Better still:</b> skip the list and talk me through the
+      whole job for twenty minutes. What I need most comes out mid-story, not in
+      reply to a question. Ramble &mdash; tangents are the good part.</p>
+    <ul class="fine">
+      <li>Transcript under the recording? Send that too.</li>
+      <li>Short answer? Hit <b>Record a short one</b> on a question below &mdash; it
+        files itself. Save Voice Memos for the long ones; a web recording can cut
+        off if your phone locks.</li>
+      <li>Anything you record here stays in this browser on this phone until you
+        send it &mdash; open the link the same way each time.</li>
+    </ul>
   </div>
 
   <div class="warn" id="insecure" hidden>
@@ -171,33 +203,41 @@
     record buttons will work.
   </div>
   <div class="warn" id="unsupported" hidden>
-    <b>This browser can't record here.</b> No problem &mdash; use your phone's voice memo
+    <b>This browser can’t record here.</b> No problem &mdash; use your phone’s voice memo
     app instead and send them over. The questions below are the same.
+  </div>
+  <div class="warn" id="restorefail" hidden>
+    <b>Couldn’t read what you recorded before.</b> Don’t record over it yet &mdash;
+    text me first, it may still be there.
   </div>
 
   <div id="questions"></div>
 
   <div class="footer-bar">
-    <div class="tally" id="tally">0 of 0 answered</div>
+    <div class="tally" id="tally" aria-live="polite">0 of 13 answered</div>
     <button type="button" id="sendall" class="send" hidden>Send all</button>
   </div>
   <div class="err" id="sendall-err" hidden></div>
+  <p class="tallynote">Recording in Voice Memos instead? This counter won’t see those
+    &mdash; that’s fine, it’s the better way.</p>
 
   <div class="check">
-    <h3>Optional &mdash; see what you said</h3>
-    <p>Paste a transcript and it'll pull out the bits that stood out, grouped by
+    <h2>Optional &mdash; see what you said</h2>
+    <p>Paste a transcript and it’ll pull out the bits that stood out, grouped by
       topic, in your own words. Handy if you want to skim what you covered before
       you send it. It stays on your phone &mdash; nothing is uploaded anywhere.</p>
+    <label class="fieldlabel" for="tx">Transcript</label>
     <textarea id="tx" placeholder="Paste a transcript&hellip;"></textarea>
     <div class="row">
       <button type="button" id="checkbtn">Show summary</button>
       <button type="button" id="copybtn" hidden>Copy synopsis</button>
-      <button type="button" id="clearbtn">Clear</button>
+      <button type="button" id="clearbtn" class="danger">Clear</button>
     </div>
-    <div class="verdict" id="verdict"></div>
+    <div class="verdict" id="verdict" aria-live="polite"></div>
   </div>
 
   <p class="sign"><b>No rush, no order, no labels.</b> The first three get me most of the way.</p>
+  <p class="contact">Stuck, or something looks wrong? <b>Text me &mdash; <span id="contact-me">[ADD YOUR NUMBER]</span></b></p>
 </div>
 
 <script>
@@ -248,7 +288,6 @@
       ask: "If you handed this to someone tomorrow, what would they get wrong?",
       why: "My favorite question. The stuff that isn't written down anywhere." }
   ];
-
   // ---- capability checks, before any UI promises recording ----------------
   var canRecord =
     window.isSecureContext !== false &&
@@ -273,12 +312,15 @@
     return "webm";
   }
 
-  // ---- storage: IndexedDB, so a locked phone doesn't eat a 15-min answer --
+  // ---- storage ------------------------------------------------------------
+  // Failures are surfaced, never swallowed: a clip that did not persist is a
+  // clip he will lose without knowing, which is the whole failure this page
+  // exists to avoid.
   var DB = "ngw-voice-brief", STORE = "clips", dbp = null;
   function db() {
     if (dbp) return dbp;
     dbp = new Promise(function (res, rej) {
-      if (!window.indexedDB) { rej(new Error("no idb")); return; }
+      if (!window.indexedDB) { rej(new Error("no indexedDB")); return; }
       var r = indexedDB.open(DB, 1);
       r.onupgradeneeded = function () { r.result.createObjectStore(STORE); };
       r.onsuccess = function () { res(r.result); };
@@ -292,8 +334,9 @@
         var tx = d.transaction(STORE, "readwrite");
         tx.objectStore(STORE).put(val, key);
         tx.oncomplete = res; tx.onerror = function () { rej(tx.error); };
+        tx.onabort = function () { rej(tx.error || new Error("aborted")); };
       });
-    }).catch(function () { /* storage blocked — clip still lives in memory */ });
+    });
   }
   function getAll() {
     return db().then(function (d) {
@@ -307,7 +350,7 @@
         };
         tx.onerror = function () { rej(tx.error); };
       });
-    }).catch(function () { return {}; });
+    });
   }
   function del_(key) {
     return db().then(function (d) {
@@ -340,7 +383,7 @@
     var card = el("article", "q" + (q.big ? " big" : ""));
     var head = el("div", "qhead");
     // Not a filing system — he is never asked to quote it. It numbers the list so
-    // he can see what he has covered, and it names the in-page recorder's files.
+    // he can see what he has covered, and it names this recorder's files.
     head.appendChild(el("span", "qnum", "Q" + q.id.slice(1)));
     head.appendChild(el("span", "ask", q.ask));
     card.appendChild(head);
@@ -350,13 +393,14 @@
     card.appendChild(clips);
 
     var row = el("div", "row");
-    var mic = el("button", "mic", "Record");
+    var mic = el("button", "mic", "Record a short one");
     mic.type = "button";
     mic.id = "mic-" + q.id;
     if (!canRecord) mic.disabled = true;
     var time = el("span", "time", "");
-    row.appendChild(mic);
-    row.appendChild(time);
+    var keepon = el("span", "keepon", "Keep the screen on \u2014 a lock can cut this off.");
+    keepon.hidden = true;
+    row.appendChild(mic); row.appendChild(time); row.appendChild(keepon);
     card.appendChild(row);
 
     var err = el("div", "err"); err.hidden = true;
@@ -364,7 +408,7 @@
 
     (group || host).appendChild(card);
 
-    cards[q.id] = { q: q, card: card, mic: mic, time: time,
+    cards[q.id] = { q: q, card: card, mic: mic, time: time, keepon: keepon,
                     clipsEl: clips, err: err, clips: [], seq: 0 };
 
     mic.addEventListener("click", function () { toggle(q.id); });
@@ -374,9 +418,13 @@
     var s = Math.floor(ms / 1000);
     return Math.floor(s / 60) + ":" + ("0" + (s % 60)).slice(-2);
   }
+  function say(c, msg, kind) {
+    c.err.textContent = msg;
+    c.err.className = kind === "note" ? "note" : "err";
+    c.err.hidden = !msg;
+  }
 
-  // Each answer is a LIST. He remembers something an hour later and adds to it;
-  // nothing he already recorded is at risk when he does.
+  // ---- clips --------------------------------------------------------------
   function addClip(id, clip, key) {
     var c = cards[id];
     var k = key || (id + "::" + (++c.seq));
@@ -394,22 +442,52 @@
     var audio = document.createElement("audio");
     audio.controls = true; audio.preload = "metadata"; audio.src = url;
     var send = el("button", "send", "Send to Todd"); send.type = "button";
-    var del = el("button", null, "Delete"); del.type = "button";
-    var flag = el("span", "sent", "Sent"); flag.hidden = true;
+    var del = el("button", "danger", "Delete"); del.type = "button";
+    var flag = el("span", "flag", ""); flag.hidden = true;
 
     rowEl.appendChild(part); rowEl.appendChild(dur); rowEl.appendChild(audio);
     rowEl.appendChild(send); rowEl.appendChild(del); rowEl.appendChild(flag);
     c.clipsEl.appendChild(rowEl);
-    rec.el = rowEl; rec.flag = flag;
+    rec.el = rowEl; rec.flag = flag; rec.delBtn = del;
+
+    if (clip.sent) markSent(rec, clip.sent);
 
     send.addEventListener("click", function () { share(id, rec); });
-    del.addEventListener("click", function () { remove(id, rec); });
+
+    // Two-stage, because Delete sits a thumb away from Send and destroys an
+    // unsent recording for good. First tap arms, second tap inside 4s removes.
+    var armed = null;
+    del.addEventListener("click", function () {
+      if (armed) { clearTimeout(armed); armed = null; remove(id, rec); return; }
+      del.textContent = "Delete for good?";
+      del.classList.add("armed");
+      armed = setTimeout(function () {
+        armed = null; del.textContent = "Delete"; del.classList.remove("armed");
+      }, 4000);
+    });
 
     c.card.classList.add("has-rec");
     c.mic.textContent = "Add another";
     c.time.textContent = "";
     c.time.classList.remove("live");
     tally();
+    return rec;
+  }
+
+  function markSent(rec, how) {
+    rec.flag.hidden = false;
+    if (how === "local") {
+      rec.flag.textContent = "Saved to phone";
+      rec.flag.className = "flag local";
+    } else {
+      // Never "Sent": the share promise resolves when the OS hands the file to
+      // an app, not when the message leaves. Claiming delivery here is the exact
+      // failure that loses an answer for good.
+      rec.flag.textContent = "Handed off";
+      rec.flag.className = "flag";
+    }
+    rec.clip.sent = how;
+    put(rec.key, rec.clip).catch(function () {});
   }
 
   function renumber(id) {
@@ -426,98 +504,188 @@
     del_(rec.key);
     if (!c.clips.length) {
       c.card.classList.remove("has-rec");
-      c.mic.textContent = "Record";
+      c.mic.textContent = "Record a short one";
     }
     renumber(id);
     tally();
   }
 
+  // ---- recording ----------------------------------------------------------
+  // Every recorder owns its own timer and stream in this closure. `current` is
+  // only an identity check — an older recorder stopping late can no longer
+  // clear a newer one's interval or orphan its recorder, which is what used to
+  // leave a live mic behind a dead Stop button.
+  var starting = false;
+
   function toggle(id) {
-    if (current && current.id === id) { stop(); return; }
-    if (current) { stop(); }
+    if (starting) return;
+    if (current) {
+      var wasSame = current.id === id;
+      current.stop();
+      if (wasSame) return;
+    }
     start(id);
+  }
+
+  function setBusy(exceptId, busy) {
+    Object.keys(cards).forEach(function (k) {
+      if (k !== exceptId && canRecord) cards[k].mic.disabled = busy;
+    });
   }
 
   function start(id) {
     var c = cards[id];
-    c.err.hidden = true;
+    say(c, "");
+    starting = true;
+    c.mic.disabled = true;
+    c.mic.textContent = "Starting\u2026";
+
     navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
       var mime = pickMime();
-      var rec = mime ? new MediaRecorder(stream, { mimeType: mime })
-                     : new MediaRecorder(stream);
-      var chunks = [], t0 = Date.now();
-      rec.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
-      rec.onstop = function () {
+      var rec;
+      try {
+        rec = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+      } catch (e) {
+        stream.getTracks().forEach(function (t) { t.stop(); });
+        starting = false; resetBtn(c);
+        say(c, "This browser couldn\u2019t start a recording. Use your phone\u2019s voice memo app for this one.");
+        return;
+      }
+
+      var chunks = [], t0 = Date.now(), tick = null, done = false;
+      var mine = {
+        id: id,
+        stop: function () { try { rec.stop(); } catch (e) { finish(true); } }
+      };
+
+      function finish(interrupted) {
+        if (done) return;
+        done = true;
+        clearInterval(tick);
         stream.getTracks().forEach(function (t) { t.stop(); }); // release the mic
-        clearInterval(current && current.tick);
+        if (current === mine) current = null;
+        setBusy(id, false);
+        c.keepon.hidden = true;
+        c.time.classList.remove("live");
+        resetBtn(c);
+        if (interrupted) {
+          c.time.textContent = "";
+          say(c, "That recording was interrupted before it could be saved. Please record it again.");
+        }
+      }
+
+      rec.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
+      rec.onerror = function () {
+        finish(false);
+        c.time.textContent = "";
+        say(c, "The recording stopped \u2014 your phone took the microphone, most likely a call. Tap record to start again.");
+      };
+      rec.onstop = function () {
+        var ms = Date.now() - t0;
         var type = rec.mimeType || mime || "audio/webm";
         var blob = new Blob(chunks, { type: type });
-        current = null;
-        c.mic.classList.remove("live");
-        c.mic.textContent = c.clips.length ? "Add another" : "Record";
+        finish(false);
         if (!blob.size) {
-          c.err.textContent = "Nothing recorded — try again.";
-          c.err.hidden = false; c.time.textContent = ""; return;
+          c.time.textContent = "";
+          say(c, "Nothing recorded \u2014 try again. If it happens twice, use your phone\u2019s voice memo app.");
+          return;
         }
-        var clip = { blob: blob, type: type, ms: Date.now() - t0 };
-        var key = id + "::" + (c.seq + 1);
-        addClip(id, clip);
-        put(key, clip);
+        var clip = { blob: blob, type: type, ms: ms };
+        var added = addClip(id, clip);
+        put(added.key, clip).catch(function () {
+          // The card already looks answered; it must not look SAFE as well.
+          say(c, "Saved in this tab only \u2014 your phone wouldn\u2019t store it. Send this one now, before you close the page.");
+        });
       };
-      rec.start();
+
+      try { rec.start(); } catch (e) {
+        stream.getTracks().forEach(function (t) { t.stop(); });
+        starting = false; resetBtn(c);
+        say(c, "Couldn\u2019t start recording. Use your phone\u2019s voice memo app for this one.");
+        return;
+      }
+
+      current = mine;
+      starting = false;
+      c.mic.disabled = false;
       c.mic.textContent = "Stop";
       c.mic.classList.add("live");
       c.time.classList.add("live");
       c.time.textContent = "0:00";
-      current = {
-        id: id, rec: rec,
-        tick: setInterval(function () { c.time.textContent = fmt(Date.now() - t0); }, 250)
-      };
+      c.keepon.hidden = false;
+      setBusy(id, true);
+      tick = setInterval(function () { c.time.textContent = fmt(Date.now() - t0); }, 250);
+
     }).catch(function (e) {
-      c.err.textContent = (e && e.name === "NotAllowedError")
-        ? "Mic permission was declined. Allow it in your browser settings, or just use your phone's voice memo app."
-        : "Couldn't start the mic. Your phone's voice memo app works just as well.";
-      c.err.hidden = false;
+      starting = false;
+      resetBtn(c);
+      var name = e && e.name;
+      if (name === "NotAllowedError") {
+        say(c, "Microphone permission was declined. Allow it in your browser settings, or just use your phone\u2019s voice memo app.");
+      } else if (name === "NotReadableError") {
+        say(c, "Another app has the microphone \u2014 a call, or CarPlay. Close it and tap record again.");
+      } else if (name === "NotFoundError") {
+        say(c, "No microphone found. Your phone\u2019s voice memo app works just as well.");
+      } else {
+        say(c, "Couldn\u2019t start the microphone. Your phone\u2019s voice memo app works just as well.");
+      }
     });
   }
 
-  function stop() {
+  function resetBtn(c) {
+    c.mic.classList.remove("live");
+    c.mic.disabled = !canRecord;
+    c.mic.textContent = c.clips.length ? "Add another" : "Record a short one";
+  }
+
+  // A tab discarded mid-recording takes the whole answer with it.
+  window.addEventListener("beforeunload", function (e) {
     if (!current) return;
-    try { current.rec.stop(); } catch (e) { current = null; }
+    e.preventDefault();
+    e.returnValue = "";
+    return "";
+  });
+
+  // ---- sharing ------------------------------------------------------------
+  function fileFor(id, rec) {
+    var c = cards[id];
+    var n = c.clips.indexOf(rec) + 1;
+    var name = "cory-" + id + "-part" + n + "." + extFor(rec.clip.type);
+    try { return new File([rec.clip.blob], name, { type: rec.clip.type }); }
+    catch (e) { return null; }
   }
 
   function share(id, rec) {
     var c = cards[id];
-    var n = c.clips.indexOf(rec) + 1;
-    var name = "cory-" + id + "-part" + n + "." + extFor(rec.clip.type);
-    var f = null;
-    try { f = new File([rec.clip.blob], name, { type: rec.clip.type }); } catch (e) {}
+    say(c, "");
+    var f = fileFor(id, rec);
     if (f && navigator.canShare && navigator.canShare({ files: [f] }) && navigator.share) {
       navigator.share({ files: [f], title: c.q.ask })
-        .then(function () { rec.flag.hidden = false; })
-        .catch(function () { /* backed out — not an error */ });
-    } else {
-      var a = document.createElement("a");
-      a.href = rec.url; a.download = name;
-      document.body.appendChild(a); a.click(); a.remove();
-      rec.flag.hidden = false;
-      c.err.textContent = "Saved to this device — attach it to a text or email.";
-      c.err.hidden = false;
+        .then(function () { markSent(rec, "shared"); })
+        .catch(function (e) {
+          // AbortError is him closing the sheet. Anything else genuinely failed
+          // and must not pass silently.
+          if (e && e.name === "AbortError") return;
+          say(c, "That didn\u2019t send \u2014 try again, or save it and attach it to a text.");
+        });
+      return;
     }
+    var a = document.createElement("a");
+    a.href = rec.url;
+    a.download = "cory-" + id + "-part" + (c.clips.indexOf(rec) + 1) + "." + extFor(rec.clip.type);
+    document.body.appendChild(a); a.click(); a.remove();
+    markSent(rec, "local");
+    say(c, "Saved to this phone \u2014 it has not been sent. Attach it to a text or email.", "note");
   }
 
   function allClips() {
     var out = [];
     Object.keys(cards).forEach(function (id) {
-      cards[id].clips.forEach(function (rec, i) {
-        out.push({ id: id, rec: rec, n: i + 1 });
-      });
+      cards[id].clips.forEach(function (rec, i) { out.push({ id: id, rec: rec, n: i + 1 }); });
     });
     return out;
   }
 
-  // One share sheet, every recording. Files are named by question and part so
-  // they arrive in a readable order rather than as a pile of untitled audio.
   function sendAll() {
     var errEl = document.getElementById("sendall-err");
     errEl.hidden = true;
@@ -536,25 +704,32 @@
     if (files.length && navigator.canShare && navigator.canShare({ files: files }) && navigator.share) {
       navigator.share({ files: files, title: "Outreach answers" })
         .then(function () {
-          items.forEach(function (it) { it.rec.flag.hidden = false; });
+          // One resolve cannot vouch for thirteen files individually, so the
+          // badge says handed off, and the line below says check.
+          items.forEach(function (it) { markSent(it.rec, "shared"); });
+          errEl.className = "note";
+          errEl.textContent = "Handed to your share sheet \u2014 check the message actually went.";
+          errEl.hidden = false;
         })
-        .catch(function () { /* backed out — not an error */ });
+        .catch(function (e) {
+          if (e && e.name === "AbortError") return;
+          errEl.className = "err";
+          errEl.textContent = "That didn\u2019t send \u2014 use Send to Todd on each recording instead.";
+          errEl.hidden = false;
+        });
       return;
     }
 
-    // Some browsers cap how many files one share may carry. Say so plainly and
-    // point at the per-recording buttons rather than silently doing nothing.
+    errEl.className = "err";
     errEl.textContent = files.length > 1
-      ? "This browser won't send " + files.length + " files at once — use Send to Todd on each recording instead."
-      : "Sharing isn't available here — use Send to Todd on each recording instead.";
+      ? "This browser won\u2019t send " + files.length + " files at once \u2014 use Send to Todd on each recording instead."
+      : "Sharing isn\u2019t available here \u2014 use Send to Todd on each recording instead.";
     errEl.hidden = false;
   }
 
   document.getElementById("sendall").addEventListener("click", sendAll);
 
-  // Deliberately biased toward under-claiming. A wrong "missing" costs him one
-  // re-record; a wrong "covered" loses the answer for good, because he stops.
-  // So: two independent signals to claim anything, one to say maybe.
+  // ---- transcript summary -------------------------------------------------
   var SIGNALS = {
     q1:  ["releas","supervisor","facility manager","sign off","signs off","approv","staffing","coverage","let them go","chain of command"],
     q2:  ["first email","reach out","reached out","lock the date","book the","run of show","arrive","set up","afterward","follow up"],
@@ -570,9 +745,6 @@
     q12: ["metric","measure","numbers","report","headcount","how many appl","success","budget","justify","leadership"],
     q13: ["get wrong","learn the hard way","mistake","didn't realize","did not realize","advice","biggest thing","took me years"]
   };
-
-  // Extractive, never generative. A keyword matcher cannot write a synopsis —
-  // it can only hand back what he actually said, which is checkable.
   function sentences(raw) {
     return raw.replace(/\s+/g, " ").split(/(?<=[.!?])\s+|\n+/)
       .map(function (x) { return x.trim(); })
@@ -592,27 +764,25 @@
 
   var lastSynopsis = "";
 
-  function checkCoverage() {
+  function showSummary() {
     var raw = document.getElementById("tx").value || "";
-    var text = raw.toLowerCase();
     var out = document.getElementById("verdict");
     out.textContent = "";
     lastSynopsis = "";
     document.getElementById("copybtn").hidden = true;
 
-    if (text.trim().length < 40) {
-      out.appendChild(el("p", null, "Paste a bit more and I'll have something to work with."));
+    if (raw.trim().length < 40) {
+      out.appendChild(el("p", null, "Paste a bit more and I\u2019ll have something to work with."));
       return;
     }
 
     // No verdicts, no scoring. A question nothing matched is simply left out —
-    // marking it "not seen" reads as a grade, and the matcher is not good
-    // enough to be grading anyone's answers.
+    // marking it missing reads as a grade, and the matcher is not good enough
+    // to be grading anyone's answers.
     var sents = sentences(raw), lines = [], shown = 0;
 
     QUESTIONS.forEach(function (q) {
-      var terms = SIGNALS[q.id] || [];
-      var qs = quotesFor(sents, terms);
+      var qs = quotesFor(sents, SIGNALS[q.id] || []);
       if (!qs.length) return;
       shown++;
       var row = el("div", "vrow");
@@ -625,7 +795,6 @@
       });
       row.appendChild(ul);
       out.appendChild(row);
-
       lines.push(q.ask.replace(/<[^>]+>/g, ""));
       qs.forEach(function (t) { lines.push("  \u2022 " + t); });
       lines.push("");
@@ -633,51 +802,79 @@
 
     if (!shown) {
       out.appendChild(el("p", null,
-        "Nothing jumped out &mdash; which usually means it's matching on the " +
-        "wrong words, not that you didn't say anything. Send it over and I'll read it properly."));
+        "Nothing jumped out \u2014 which usually means it\u2019s matching on the wrong " +
+        "words, not that you didn\u2019t say anything. Send it over and I\u2019ll read it properly."));
       return;
     }
 
     out.insertBefore(el("p", null,
-      "Here's what stood out, in your words. It's picking on keywords rather " +
+      "Here\u2019s what stood out, in your words. It\u2019s picking on keywords rather " +
       "than understanding you, so treat it as a skim, not a checklist."), out.firstChild);
 
     lastSynopsis = lines.join("\n").trim();
     document.getElementById("copybtn").hidden = !lastSynopsis;
   }
 
-  document.getElementById("checkbtn").addEventListener("click", checkCoverage);
+  document.getElementById("checkbtn").addEventListener("click", showSummary);
+
   document.getElementById("copybtn").addEventListener("click", function () {
-    var btn = this;
-    var done = function () { btn.textContent = "Copied"; setTimeout(function () { btn.textContent = "Copy synopsis"; }, 1600); };
+    var btn = this, out = document.getElementById("verdict");
+    var ok = function () {
+      btn.textContent = "Copied";
+      setTimeout(function () { btn.textContent = "Copy synopsis"; }, 1600);
+    };
+    // Never overwrite the textarea on failure — that is his pasted transcript,
+    // and losing it to a fallback would cost more than the copy was worth.
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(lastSynopsis).then(done, function () {
-        document.getElementById("tx").value = lastSynopsis; done();
+      navigator.clipboard.writeText(lastSynopsis).then(ok, function () {
+        out.insertBefore(el("p", "err",
+          "Couldn\u2019t copy \u2014 select the summary above and copy it by hand."), out.firstChild);
       });
     } else {
-      document.getElementById("tx").value = lastSynopsis; done();
+      out.insertBefore(el("p", "err",
+        "Copying isn\u2019t available here \u2014 select the summary above and copy it by hand."), out.firstChild);
     }
   });
-  document.getElementById("clearbtn").addEventListener("click", function () {
-    document.getElementById("tx").value = "";
-    document.getElementById("verdict").textContent = "";
-    document.getElementById("copybtn").hidden = true;
-    lastSynopsis = "";
-  });
 
+  // Clear discards a transcript that was painful to paste, so it confirms once.
+  (function () {
+    var btn = document.getElementById("clearbtn"), armed = null;
+    btn.addEventListener("click", function () {
+      var tx = document.getElementById("tx");
+      if (!tx.value && !document.getElementById("verdict").textContent) return;
+      if (armed || !tx.value) {
+        clearTimeout(armed); armed = null;
+        btn.textContent = "Clear"; btn.classList.remove("armed");
+        tx.value = "";
+        document.getElementById("verdict").textContent = "";
+        document.getElementById("copybtn").hidden = true;
+        lastSynopsis = "";
+        return;
+      }
+      btn.textContent = "Clear the box?";
+      btn.classList.add("armed");
+      armed = setTimeout(function () {
+        armed = null; btn.textContent = "Clear"; btn.classList.remove("armed");
+      }, 4000);
+    });
+  })();
+
+  // ---- tally --------------------------------------------------------------
   function tally() {
     var ids = Object.keys(cards);
     var answered = ids.filter(function (i) { return cards[i].clips.length > 0; }).length;
     var total = ids.reduce(function (n, i) { return n + cards[i].clips.length; }, 0);
     var t = answered + " of " + ids.length + " answered";
-    if (total > answered) t += "  ·  " + total + " recordings";
+    if (total > answered) t += "  \u00b7  " + total + " recordings";
     document.getElementById("tally").textContent = t;
     var sa = document.getElementById("sendall");
     sa.hidden = total === 0;
     sa.textContent = total === 1 ? "Send it" : "Send all " + total;
   }
 
-  // restore anything from a previous visit, in order
+  // ---- restore ------------------------------------------------------------
+  // An empty page and an unreadable store look identical to him, so they must
+  // not be handled identically here.
   getAll().then(function (saved) {
     Object.keys(saved).sort(function (a, b) {
       var pa = a.split("::"), pb = b.split("::");
@@ -686,6 +883,9 @@
       var id = key.split("::")[0];
       if (cards[id] && saved[key] && saved[key].blob) addClip(id, saved[key], key);
     });
+    tally();
+  }).catch(function () {
+    document.getElementById("restorefail").hidden = false;
     tally();
   });
 
