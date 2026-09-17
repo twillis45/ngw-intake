@@ -59,7 +59,15 @@ ok(/skip the list/.test(how), 'the one-long-recording option is offered');
 ok(/stays in this browser on this phone/.test(how), 'says where recordings live');
 ok(/Recording in Voice Memos instead/.test(await page.locator('.tallynote').textContent()),
    'tally explains it cannot see Voice Memos');
+const contact = page.locator('#contact-me');
 ok(/Text me/.test(await page.locator('.contact').textContent()), 'a way to reach him exists');
+// A placeholder shipping to him would be worse than no contact line at all.
+const href = await contact.getAttribute('href');
+ok(/^sms:\+1\d{10}$/.test(href), `the number is a real tappable sms link (${href})`);
+ok(!/ADD YOUR|PLACEHOLDER|\[/.test(await contact.textContent()),
+   'no placeholder left in the contact line');
+ok(href.replace(/\D/g, '').endsWith((await contact.textContent()).replace(/\D/g, '')),
+   'the displayed number and the link agree');
 
 console.log('\n=== guidelines ===');
 ok((await page.locator('h1').count()) === 1, 'exactly one h1');

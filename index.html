@@ -149,6 +149,9 @@
   .sign b { color: var(--ink); font-weight: 600; }
   .contact { font-size: 15px; margin: 14px 0 0; color: var(--ink-soft); }
   .contact b { color: var(--ink); font-weight: 600; }
+  .contact a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px;
+               text-decoration-thickness: 1px; }
+  .contact a:hover { color: var(--accent); }
 
   @media (min-width: 720px) {
     .wrap { max-width: 38rem; padding-block: 64px 96px; }
@@ -219,7 +222,8 @@
     &mdash; that’s fine, it’s the better way.</p>
 
   <p class="sign"><b>No rush, no order, no labels.</b> The first three get me most of the way.</p>
-  <p class="contact">Stuck, or something looks wrong? <b>Text me &mdash; <span id="contact-me">[ADD YOUR NUMBER]</span></b></p>
+  <p class="contact">Stuck, or something looks wrong? <b>Text me &mdash;
+    <a id="contact-me" href="sms:+12404325650">(240)&nbsp;432-5650</a></b></p>
 </div>
 
 <script>
