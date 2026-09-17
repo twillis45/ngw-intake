@@ -135,22 +135,19 @@
   </div>
 
   <div class="how">
-    <p><b>Use Voice Memos on your phone.</b> It handles long answers better than
-      any web page can, and it writes you a transcript.</p>
-    <ol>
-      <li>Open <b>Voice Memos</b> and hit record.</li>
-      <li><b>Say the question number first</b> &mdash; "Question two&hellip;" &mdash; then
-        answer. That's the only bookkeeping I need; don't bother renaming files.</li>
-      <li>Ramble. Tangents are the good part.</li>
-      <li>Share &rarr; Messages &rarr; me. Several at once is fine.</li>
-    </ol>
-    <p class="alt"><b>If a transcript shows up under the recording, send that too</b>
-      &mdash; saves me a step. Newer iPhones do this on their own; older ones don't,
-      and the audio alone is fine either way.</p>
-    <p class="alt"><b>Short answer, right now?</b> Hit <b>Record</b> on any question
-      below and it records here instead &mdash; no app, no naming, nothing to think
-      about. Good for the quick ones. For the twenty-minute walkthrough, use Voice
-      Memos: if the phone locks or you switch apps, a web recording can get cut off.</p>
+    <p><b>Just talk. Don't label anything.</b> Open Voice Memos, hit record,
+      answer whatever you feel like answering, send them over. Any order, no
+      names, no numbers &mdash; I'll work out which answer goes where.</p>
+    <p class="alt"><b>Or skip the list entirely.</b> Hit record and talk me
+      through how you run these visits for twenty minutes straight. Honestly
+      that's better than thirteen separate answers &mdash; the stuff I most need
+      tends to come out in the middle of a story, not in reply to a question.</p>
+    <p class="alt">Ramble. Tangents are the good part. If a transcript shows up
+      under the recording, send that along too &mdash; saves me a step.</p>
+    <p class="alt"><b>Quick one instead?</b> Hit <b>Record</b> on any question
+      below and it records right here, already filed. Good for short answers.
+      For the long ones use Voice Memos &mdash; if the phone locks or you switch
+      apps, a web recording can get cut off.</p>
   </div>
 
   <div class="warn" id="insecure" hidden>
@@ -170,7 +167,7 @@
   </div>
   <div class="err" id="sendall-err" hidden></div>
 
-  <p class="sign"><b>No rush.</b> The first three get me most of the way.</p>
+  <p class="sign"><b>No rush, no order, no labels.</b> The first three get me most of the way.</p>
 </div>
 
 <script>
@@ -312,8 +309,8 @@
     }
     var card = el("article", "q" + (q.big ? " big" : ""));
     var head = el("div", "qhead");
-    // The number is the whole filing system: he says it out loud at the top of a
-    // Voice Memo, and that is what ties "New Recording 7" back to this question.
+    // Not a filing system — he is never asked to quote it. It numbers the list so
+    // he can see what he has covered, and it names the in-page recorder's files.
     head.appendChild(el("span", "qnum", "Q" + q.id.slice(1)));
     head.appendChild(el("span", "ask", q.ask));
     card.appendChild(head);

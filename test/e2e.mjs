@@ -48,8 +48,10 @@ ok(badges.join(',') === Array.from({length: 13}, (_, i) => 'Q' + (i + 1)).join('
    `question badges run Q1..Q13 in order (${badges.slice(0, 3).join(',')}...)`);
 const firstAsk = await page.locator('article.q').first().locator('.ask').textContent();
 ok(/controller travels to speak/.test(firstAsk), 'Q1 badge sits on the release-authority question');
-ok(/Say the question number first/.test(await page.locator('.how').textContent()),
-   'instructions tell him to say the number');
+const how = await page.locator('.how').textContent();
+ok(/Don't label anything|Don\u2019t label anything/.test(how), 'instructions ask for no labelling');
+ok(!/say the question number|Say the question number/i.test(how), 'nothing asks him to speak a number');
+ok(/skip the list entirely/.test(how), 'the one-long-recording option is offered');
 ok(/Voice Memos/.test(await page.locator('.how').textContent()),
    'Voice Memos named as the main path');
 
