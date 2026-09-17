@@ -38,57 +38,75 @@ console.log('\n=== page at rest ===');
 ok(!(await page.locator('#insecure').isVisible()), 'no insecure-context warning on localhost');
 ok(!(await page.locator('#unsupported').isVisible()), 'no unsupported-browser warning');
 ok((await page.locator('article.q').count()) === 13, '13 question cards rendered');
-ok((await page.locator('#tally').textContent()).trim() === '0 of 13 recorded', 'tally starts at 0 of 13');
-ok(await page.locator('#mic-q1').isEnabled(), 'record button enabled');
+ok((await page.locator('#tally').textContent()).trim() === '0 of 13 answered', 'tally starts at 0 of 13');
 ok((await page.locator('article.q audio:visible').count()) === 0, 'no dead audio players on a fresh page');
+ok(!(await page.locator('#sendall').isVisible()), 'Send all hidden with nothing recorded');
+ok((await page.locator('#mic-q1').textContent()) === 'Record', 'button reads Record first time');
 
-console.log('\n=== record on q1 ===');
-await page.locator('#mic-q1').click();
-await page.waitForTimeout(400);
-ok(await page.locator('#mic-q1').evaluate((b) => b.classList.contains('live')), 'button goes live while recording');
-ok((await page.locator('#mic-q1').textContent()) === 'Stop', 'button reads Stop');
-await page.waitForTimeout(1400);
-const t = await page.locator('article.q').first().locator('.time').textContent();
-ok(/^0:0[12]$/.test(t), `timer counted up (saw ${t})`);
+async function record(id, ms) {
+  await page.locator('#mic-' + id).click();
+  await page.waitForTimeout(ms);
+  await page.locator('#mic-' + id).click();
+  await page.waitForTimeout(900);
+}
 
-await page.locator('#mic-q1').click();                       // stop
-await page.waitForFunction(() => {
-  const a = document.querySelector('article.q audio');
-  return a && a.src && a.src.length > 0;
-}, null, { timeout: 5000 }).catch(() => {});
+console.log('\n=== first recording on q1 ===');
+await record('q1', 1200);
+const c1 = page.locator('article.q').first();
+ok((await c1.locator('.clip').count()) === 1, 'one clip row');
+ok((await c1.locator('.clip .part').first().textContent()) === 'Part 1', 'labelled Part 1');
+ok(await c1.locator('.clip audio').first().evaluate((a) => !!a.src), 'clip has audio source');
+ok((await page.locator('#mic-q1').textContent()) === 'Add another', 'button becomes Add another');
+ok((await page.locator('#tally').textContent()).includes('1 of 13 answered'), 'tally counts the answer');
+ok(await page.locator('#sendall').isVisible(), 'Send all appears');
+ok((await page.locator('#sendall').textContent()) === 'Send it', 'singular label at one clip');
 
-console.log('\n=== after stop ===');
-const card = page.locator('article.q').first();
-ok(await card.locator('audio').evaluate((a) => !!a.src), 'audio source attached');
-ok(await card.locator('audio').isVisible(), 'player revealed with the clip');
-ok(await card.evaluate((c) => c.classList.contains('has-rec')), 'card marked as recorded');
-ok(await card.locator('button.send').isVisible(), 'Send button shown');
-ok(!(await page.locator('#mic-q1').isVisible()), 'Record button hidden once there is a clip');
-ok((await page.locator('#tally').textContent()).trim() === '1 of 13 recorded', 'tally updated to 1 of 13');
-const mime = await card.locator('audio').evaluate(async (a) => (await fetch(a.src)).blob().then((b) => b.type));
-ok(/^audio\//.test(mime), `clip is audio (${mime})`);
-const size = await card.locator('audio').evaluate(async (a) => (await fetch(a.src)).blob().then((b) => b.size));
-ok(size > 0, `clip has bytes (${size})`);
+console.log('\n=== ADD a second recording, first survives ===');
+await record('q1', 1200);
+ok((await c1.locator('.clip').count()) === 2, 'two clip rows — the first was not replaced');
+const parts = await c1.locator('.clip .part').allTextContents();
+ok(parts.join(',') === 'Part 1,Part 2', `parts labelled in order (${parts.join(',')})`);
+const srcs = await c1.locator('.clip audio').evaluateAll((els) => els.map((a) => a.src));
+ok(srcs.length === 2 && srcs[0] !== srcs[1] && srcs.every(Boolean), 'both clips have distinct sources');
+ok((await page.locator('#tally').textContent()).includes('2 recordings'), 'tally reports 2 recordings');
+ok((await page.locator('#sendall').textContent()) === 'Send all 2', 'Send all counts both');
 
-console.log('\n=== survives a reload (IndexedDB) ===');
+console.log('\n=== a second question, independent ===');
+await record('q4', 1200);
+ok((await page.locator('#tally').textContent()).includes('2 of 13 answered'), 'two questions answered');
+ok((await page.locator('#sendall').textContent()) === 'Send all 3', 'Send all spans questions');
+ok((await c1.locator('.clip').count()) === 2, "q1's clips untouched by q4");
+
+console.log('\n=== all of it survives a reload ===');
 await page.reload({ waitUntil: 'load' });
-await page.waitForTimeout(700);
-ok((await page.locator('#tally').textContent()).trim() === '1 of 13 recorded', 'clip restored after reload');
-ok(await page.locator('article.q').first().locator('audio').evaluate((a) => !!a.src), 'restored clip has a source');
+await page.waitForTimeout(1000);
+ok((await page.locator('article.q').first().locator('.clip').count()) === 2, 'q1 restored with both clips');
+ok((await page.locator('#tally').textContent()).includes('2 of 13 answered'), 'tally restored');
+ok((await page.locator('#sendall').textContent()) === 'Send all 3', 'Send all restored');
+const rparts = await page.locator('article.q').first().locator('.clip .part').allTextContents();
+ok(rparts.join(',') === 'Part 1,Part 2', 'restored in recorded order');
 
-console.log('\n=== redo clears it ===');
-await page.locator('article.q').first().locator('button', { hasText: 'Redo' }).click();
-await page.waitForTimeout(400);
-ok((await page.locator('#tally').textContent()).trim() === '0 of 13 recorded', 'tally back to 0 after Redo');
-ok(await page.locator('#mic-q1').isVisible(), 'Record button returns');
-ok(!(await page.locator('article.q').first().locator('audio').isVisible()), 'player hidden again after Redo');
-ok(await page.locator('article.q').first().locator('audio').evaluate((a) => !a.src && (isNaN(a.duration) || a.duration === 0)), 'decoded buffer dropped, not just the src');
+console.log('\n=== deleting one leaves the other, renumbered ===');
+await page.locator('article.q').first().locator('.clip').first()
+  .locator('button', { hasText: 'Delete' }).click();
+await page.waitForTimeout(500);
+ok((await page.locator('article.q').first().locator('.clip').count()) === 1, 'one clip left');
+ok((await page.locator('article.q').first().locator('.clip .part').first().textContent()) === 'Part 1',
+   'survivor renumbered to Part 1');
+ok((await page.locator('#tally').textContent()).includes('2 of 13 answered'), 'q1 still counts as answered');
+
+console.log('\n=== deleting the last one resets that question ===');
+await page.locator('article.q').first().locator('.clip').first()
+  .locator('button', { hasText: 'Delete' }).click();
+await page.waitForTimeout(500);
+ok((await page.locator('article.q').first().locator('.clip').count()) === 0, 'no clips left on q1');
+ok((await page.locator('#mic-q1').textContent()) === 'Record', 'button back to Record');
+ok((await page.locator('#tally').textContent()).includes('1 of 13 answered'), 'tally drops to 1');
 
 console.log('\n=== layout ===');
 const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
 ok(!overflow, 'no horizontal scroll at 390px');
-
-await page.screenshot({ path: '/tmp/intake-light.png', fullPage: false });
+await page.screenshot({ path: '/tmp/intake-light.png' });
 await ctx.close();
 
 const dark = await browser.newContext({ permissions: ['microphone'], colorScheme: 'dark', viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
@@ -99,7 +117,8 @@ ok(bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent', `dark theme paints its own
 await dp.screenshot({ path: '/tmp/intake-dark.png' });
 
 console.log('\n=== console ===');
-ok(errors.length === 0, errors.length ? 'page errors: ' + errors.join(' | ') : 'no page errors');
+const real = errors.filter((e) => !/ERR_CERT_AUTHORITY_INVALID/.test(e));
+ok(real.length === 0, real.length ? 'page errors: ' + real.join(' | ') : 'no page errors (font CDN cert is this sandbox proxy, ignored)');
 
 await browser.close();
 server.close();

@@ -94,6 +94,14 @@
           letter-spacing: .12em; text-transform: uppercase; color: var(--cleared);
           background: var(--cleared-fill); padding: 3px 7px; }
 
+  .clips { display: flex; flex-direction: column; gap: 10px; }
+  .clip { display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+          padding-top: 10px; border-top: 1px solid var(--rule-soft); }
+  .clip:first-child { border-top: none; padding-top: 0; }
+  .part { font-family: "IBM Plex Mono",ui-monospace,monospace; font-size: 11px;
+          font-weight: 600; letter-spacing: .12em; text-transform: uppercase;
+          color: var(--ink-faint); }
+  .clip audio { flex: 1 1 100%; width: 100%; min-width: 0; }
   audio { width: 100%; min-width: 0; }
 
   .err { font-size: 13.5px; color: var(--live); }
@@ -103,6 +111,9 @@
   .sign { font-size: 14.5px; color: var(--ink-soft); margin: 0; }
   .sign b { color: var(--ink); font-weight: 600; }
 
+  .footer-bar { border-top: 2px solid var(--ink); padding-top: 12px;
+                display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+  .footer-bar .tally { border-top: none; padding-top: 0; flex: 1 1 auto; }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
@@ -115,7 +126,7 @@
   </div>
 
   <div class="how">
-    <p><b>Hit record. Talk. Hit send.</b> That's it.</p>
+    <p><b>Hit record. Talk. Hit send.</b> That's it.</p>\n    <p>Thought of more later? Hit <b>Add another</b> on that question &mdash; it keeps what you already recorded.</p>
     <p>Ramble &mdash; tangents are the good part. Any order, no deadline. Recordings stay
       on your phone until you tap send, and they survive closing the page.</p>
     <p><b>Going long?</b> Keep the screen awake while it records &mdash; if the phone locks
@@ -134,7 +145,11 @@
 
   <div id="questions"></div>
 
-  <div class="tally" id="tally">0 of 0 recorded</div>
+  <div class="footer-bar">
+    <div class="tally" id="tally">0 of 0 answered</div>
+    <button type="button" id="sendall" class="send" hidden>Send all</button>
+  </div>
+  <div class="err" id="sendall-err" hidden></div>
 
   <p class="sign"><b>No rush.</b> The first three get me most of the way.</p>
 </div>
@@ -248,7 +263,7 @@
       });
     }).catch(function () { return {}; });
   }
-  function del(key) {
+  function del_(key) {
     return db().then(function (d) {
       return new Promise(function (res) {
         var tx = d.transaction(STORE, "readwrite");
@@ -273,8 +288,6 @@
     if (q.group) {
       group = el("div", "group");
       group.appendChild(el("h2", null, q.group));
-      var spacer = el("div");
-      spacer.style.height = "4px";
       host.appendChild(group);
       group.style.marginBottom = "18px";
     }
@@ -282,8 +295,11 @@
     card.appendChild(el("div", "ask", q.ask));
     card.appendChild(el("div", "why", q.why));
 
+    var clips = el("div", "clips");
+    card.appendChild(clips);
+
     var row = el("div", "row");
-    var mic = el("button", "mic", canRecord ? "Record" : "Record");
+    var mic = el("button", "mic", "Record");
     mic.type = "button";
     mic.id = "mic-" + q.id;
     if (!canRecord) mic.disabled = true;
@@ -292,33 +308,15 @@
     row.appendChild(time);
     card.appendChild(row);
 
-    var after = el("div", "row");
-    after.hidden = true;
-    var audio = document.createElement("audio");
-    audio.controls = true;
-    audio.preload = "metadata";
-    audio.hidden = true;            // no dead player before there is a clip
-    var send = el("button", "send", "Send to Todd"); send.type = "button";
-    var save = el("button", null, "Save"); save.type = "button";
-    var again = el("button", null, "Redo"); again.type = "button";
-    var flag = el("span", "sent", "Sent"); flag.hidden = true;
-    after.appendChild(send); after.appendChild(save); after.appendChild(again); after.appendChild(flag);
-    card.appendChild(audio);
-    card.appendChild(after);
-
     var err = el("div", "err"); err.hidden = true;
     card.appendChild(err);
 
     (group || host).appendChild(card);
 
-    cards[q.id] = { q: q, card: card, mic: mic, time: time, after: after,
-                    audio: audio, send: send, save: save, again: again,
-                    flag: flag, err: err, clip: null, url: null };
+    cards[q.id] = { q: q, card: card, mic: mic, time: time,
+                    clipsEl: clips, err: err, clips: [], seq: 0 };
 
     mic.addEventListener("click", function () { toggle(q.id); });
-    send.addEventListener("click", function () { share(q.id); });
-    save.addEventListener("click", function () { download(q.id); });
-    again.addEventListener("click", function () { redo(q.id); });
   });
 
   function fmt(ms) {
@@ -326,23 +324,64 @@
     return Math.floor(s / 60) + ":" + ("0" + (s % 60)).slice(-2);
   }
 
-  function attach(id, clip) {
+  // Each answer is a LIST. He remembers something an hour later and adds to it;
+  // nothing he already recorded is at risk when he does.
+  function addClip(id, clip, key) {
     var c = cards[id];
-    c.clip = clip;
-    if (c.url) URL.revokeObjectURL(c.url);
-    c.url = URL.createObjectURL(clip.blob);
-    c.audio.src = c.url;
-    c.after.hidden = false;
-    c.audio.hidden = false;
+    var k = key || (id + "::" + (++c.seq));
+    if (key) {
+      var n = parseInt(String(key).split("::")[1], 10);
+      if (n > c.seq) c.seq = n;
+    }
+    var url = URL.createObjectURL(clip.blob);
+    var rec = { key: k, clip: clip, url: url };
+    c.clips.push(rec);
+
+    var rowEl = el("div", "clip");
+    var part = el("span", "part", "Part " + c.clips.length);
+    var dur = el("span", "time", clip.ms ? fmt(clip.ms) : "");
+    var audio = document.createElement("audio");
+    audio.controls = true; audio.preload = "metadata"; audio.src = url;
+    var send = el("button", "send", "Send to Todd"); send.type = "button";
+    var del = el("button", null, "Delete"); del.type = "button";
+    var flag = el("span", "sent", "Sent"); flag.hidden = true;
+
+    rowEl.appendChild(part); rowEl.appendChild(dur); rowEl.appendChild(audio);
+    rowEl.appendChild(send); rowEl.appendChild(del); rowEl.appendChild(flag);
+    c.clipsEl.appendChild(rowEl);
+    rec.el = rowEl; rec.flag = flag;
+
+    send.addEventListener("click", function () { share(id, rec); });
+    del.addEventListener("click", function () { remove(id, rec); });
+
     c.card.classList.add("has-rec");
-    c.mic.hidden = true;
-    c.time.textContent = clip.ms ? fmt(clip.ms) : "";
+    c.mic.textContent = "Add another";
+    c.time.textContent = "";
     c.time.classList.remove("live");
     tally();
   }
 
-  function toggle(id) {
+  function renumber(id) {
+    cards[id].clips.forEach(function (r, i) {
+      r.el.querySelector(".part").textContent = "Part " + (i + 1);
+    });
+  }
+
+  function remove(id, rec) {
     var c = cards[id];
+    URL.revokeObjectURL(rec.url);
+    rec.el.remove();
+    c.clips = c.clips.filter(function (r) { return r !== rec; });
+    del_(rec.key);
+    if (!c.clips.length) {
+      c.card.classList.remove("has-rec");
+      c.mic.textContent = "Record";
+    }
+    renumber(id);
+    tally();
+  }
+
+  function toggle(id) {
     if (current && current.id === id) { stop(); return; }
     if (current) { stop(); }
     start(id);
@@ -364,10 +403,15 @@
         var blob = new Blob(chunks, { type: type });
         current = null;
         c.mic.classList.remove("live");
-        if (!blob.size) { c.err.textContent = "Nothing recorded — try again."; c.err.hidden = false; c.time.textContent = ""; return; }
+        c.mic.textContent = c.clips.length ? "Add another" : "Record";
+        if (!blob.size) {
+          c.err.textContent = "Nothing recorded — try again.";
+          c.err.hidden = false; c.time.textContent = ""; return;
+        }
         var clip = { blob: blob, type: type, ms: Date.now() - t0 };
-        attach(id, clip);
-        put(id, clip);
+        var key = id + "::" + (c.seq + 1);
+        addClip(id, clip);
+        put(key, clip);
       };
       rec.start();
       c.mic.textContent = "Stop";
@@ -391,61 +435,92 @@
     try { current.rec.stop(); } catch (e) { current = null; }
   }
 
-  function fileFor(id) {
+  function share(id, rec) {
     var c = cards[id];
-    var name = "cory-" + id + "." + extFor(c.clip.type);
-    try { return new File([c.clip.blob], name, { type: c.clip.type }); }
-    catch (e) { return null; }
-  }
-
-  function share(id) {
-    var c = cards[id], f = fileFor(id);
+    var n = c.clips.indexOf(rec) + 1;
+    var name = "cory-" + id + "-part" + n + "." + extFor(rec.clip.type);
+    var f = null;
+    try { f = new File([rec.clip.blob], name, { type: rec.clip.type }); } catch (e) {}
     if (f && navigator.canShare && navigator.canShare({ files: [f] }) && navigator.share) {
       navigator.share({ files: [f], title: c.q.ask })
-        .then(function () { c.flag.hidden = false; })
-        .catch(function () { /* user backed out — not an error */ });
+        .then(function () { rec.flag.hidden = false; })
+        .catch(function () { /* backed out — not an error */ });
     } else {
-      // No share sheet here (desktop, or an older browser). Fall back to a file.
-      download(id);
-      c.err.textContent = "Saved to this device — attach it to a text or email and it's on its way.";
+      var a = document.createElement("a");
+      a.href = rec.url; a.download = name;
+      document.body.appendChild(a); a.click(); a.remove();
+      rec.flag.hidden = false;
+      c.err.textContent = "Saved to this device — attach it to a text or email.";
       c.err.hidden = false;
     }
   }
 
-  function download(id) {
-    var c = cards[id];
-    var a = document.createElement("a");
-    a.href = c.url;
-    a.download = "cory-" + id + "." + extFor(c.clip.type);
-    document.body.appendChild(a); a.click(); a.remove();
-    c.flag.hidden = false;
+  function allClips() {
+    var out = [];
+    Object.keys(cards).forEach(function (id) {
+      cards[id].clips.forEach(function (rec, i) {
+        out.push({ id: id, rec: rec, n: i + 1 });
+      });
+    });
+    return out;
   }
 
-  function redo(id) {
-    var c = cards[id];
-    if (c.url) { URL.revokeObjectURL(c.url); c.url = null; }
-    c.clip = null;
-    c.audio.removeAttribute("src");
-    c.audio.load();                 // drop the decoded buffer, not just the src
-    c.audio.hidden = true;
-    c.after.hidden = true; c.flag.hidden = true; c.err.hidden = true;
-    c.card.classList.remove("has-rec");
-    c.mic.hidden = false; c.mic.textContent = "Record";
-    c.time.textContent = "";
-    del(id);
-    tally();
+  // One share sheet, every recording. Files are named by question and part so
+  // they arrive in a readable order rather than as a pile of untitled audio.
+  function sendAll() {
+    var errEl = document.getElementById("sendall-err");
+    errEl.hidden = true;
+    var items = allClips();
+    if (!items.length) return;
+
+    var files = [];
+    try {
+      files = items.map(function (it) {
+        return new File([it.rec.clip.blob],
+          "cory-" + it.id + "-part" + it.n + "." + extFor(it.rec.clip.type),
+          { type: it.rec.clip.type });
+      });
+    } catch (e) { files = []; }
+
+    if (files.length && navigator.canShare && navigator.canShare({ files: files }) && navigator.share) {
+      navigator.share({ files: files, title: "Outreach answers" })
+        .then(function () {
+          items.forEach(function (it) { it.rec.flag.hidden = false; });
+        })
+        .catch(function () { /* backed out — not an error */ });
+      return;
+    }
+
+    // Some browsers cap how many files one share may carry. Say so plainly and
+    // point at the per-recording buttons rather than silently doing nothing.
+    errEl.textContent = files.length > 1
+      ? "This browser won't send " + files.length + " files at once — use Send to Todd on each recording instead."
+      : "Sharing isn't available here — use Send to Todd on each recording instead.";
+    errEl.hidden = false;
   }
+
+  document.getElementById("sendall").addEventListener("click", sendAll);
 
   function tally() {
     var ids = Object.keys(cards);
-    var n = ids.filter(function (i) { return !!cards[i].clip; }).length;
-    document.getElementById("tally").textContent = n + " of " + ids.length + " recorded";
+    var answered = ids.filter(function (i) { return cards[i].clips.length > 0; }).length;
+    var total = ids.reduce(function (n, i) { return n + cards[i].clips.length; }, 0);
+    var t = answered + " of " + ids.length + " answered";
+    if (total > answered) t += "  ·  " + total + " recordings";
+    document.getElementById("tally").textContent = t;
+    var sa = document.getElementById("sendall");
+    sa.hidden = total === 0;
+    sa.textContent = total === 1 ? "Send it" : "Send all " + total;
   }
 
-  // restore anything from a previous visit
+  // restore anything from a previous visit, in order
   getAll().then(function (saved) {
-    Object.keys(saved).forEach(function (id) {
-      if (cards[id] && saved[id] && saved[id].blob) attach(id, saved[id]);
+    Object.keys(saved).sort(function (a, b) {
+      var pa = a.split("::"), pb = b.split("::");
+      return pa[0] === pb[0] ? (+pa[1]) - (+pb[1]) : a.localeCompare(b);
+    }).forEach(function (key) {
+      var id = key.split("::")[0];
+      if (cards[id] && saved[key] && saved[key].blob) addClip(id, saved[key], key);
     });
     tally();
   });
