@@ -1,0 +1,452 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Outreach Voice Brief</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --ground:#EFF1F4; --panel:#FBFCFD; --panel-done:#F1F3F5;
+    --ink:#16202B; --ink-soft:#4A5766; --ink-faint:#7C8794;
+    --rule-soft:#DFE3E8; --amber:#B37400; --amber-fill:#FDF4E0;
+    --cleared:#1B6B50; --cleared-fill:#E7F2ED;
+    --live:#A8323F; --live-fill:#F8E9EA;
+    --strip:#16202B; --strip-ink:#F2F4F6; --strip-meta:#9FAAB6;
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:#12181E; --panel:#1A222B; --panel-done:#161D24;
+      --ink:#E8ECF0; --ink-soft:#A5B0BC; --ink-faint:#7A8693;
+      --rule-soft:#26303A; --amber:#E3A63A; --amber-fill:#2A2415;
+      --cleared:#5FBF9A; --cleared-fill:#14251F;
+      --live:#E8828E; --live-fill:#2A181B;
+      --strip:#0A0E12; --strip-ink:#E8ECF0; --strip-meta:#77828F;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:#12181E; --panel:#1A222B; --panel-done:#161D24;
+    --ink:#E8ECF0; --ink-soft:#A5B0BC; --ink-faint:#7A8693;
+    --rule-soft:#26303A; --amber:#E3A63A; --amber-fill:#2A2415;
+    --cleared:#5FBF9A; --cleared-fill:#14251F;
+    --live:#E8828E; --live-fill:#2A181B;
+    --strip:#0A0E12; --strip-ink:#E8ECF0; --strip-meta:#77828F;
+  }
+
+  * { box-sizing: border-box; }
+  html { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+  body {
+    margin: 0; background: var(--ground); color: var(--ink);
+    font-family: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+    font-size: 15px; line-height: 1.45;
+  }
+  [hidden] { display: none !important; }
+
+  .wrap { max-width: 640px; margin: 0 auto; padding-inline: 16px; padding-block: 24px 56px;
+          display: flex; flex-direction: column; gap: 22px; }
+
+  .strip { background: var(--strip); color: var(--strip-ink); border-left: 6px solid var(--amber);
+           padding: 14px 16px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
+  .strip .call { font-family: "Barlow Condensed","Arial Narrow",sans-serif; font-weight: 700;
+                 font-size: clamp(28px,7.5vw,40px); letter-spacing: .02em; line-height: 1; text-transform: uppercase; }
+  .strip .meta { font-family: "IBM Plex Mono",ui-monospace,monospace; font-size: 11px;
+                 letter-spacing: .12em; text-transform: uppercase; color: var(--strip-meta); margin-left: auto; }
+
+  .how { background: var(--amber-fill); border-left: 3px solid var(--amber); padding: 13px 15px; }
+  .how p { margin: 0 0 7px; } .how p:last-child { margin: 0; } .how b { font-weight: 600; }
+
+  .warn { background: var(--live-fill); border-left: 3px solid var(--live); padding: 13px 15px; color: var(--ink); }
+
+  h2 { font-family: "IBM Plex Mono",ui-monospace,monospace; font-size: 11px; font-weight: 600;
+       letter-spacing: .16em; text-transform: uppercase; color: var(--ink-faint);
+       margin: 0; display: flex; align-items: center; gap: 10px; }
+  h2::after { content: ""; height: 1px; background: var(--rule-soft); flex: 1; }
+
+  .group { display: flex; flex-direction: column; gap: 10px; }
+
+  .q { background: var(--panel); border: 1px solid var(--rule-soft); padding: 14px 15px;
+       display: flex; flex-direction: column; gap: 11px; }
+  .q.big { border-left: 3px solid var(--amber); }
+  .q.has-rec { background: var(--panel-done); }
+  .ask { font-size: 16px; font-weight: 500; text-wrap: balance; }
+  .why { font-size: 13.5px; color: var(--ink-soft); }
+  .why b { font-weight: 600; color: var(--ink); }
+
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
+  button { font: inherit; font-size: 14px; cursor: pointer; border-radius: 2px;
+           border: 1px solid var(--ink-faint); background: transparent; color: var(--ink);
+           padding: 9px 14px; min-height: 42px; }
+  button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+  button[disabled] { opacity: .4; cursor: not-allowed; }
+  .mic { border-color: var(--ink); font-weight: 600; }
+  .mic.live { background: var(--live); border-color: var(--live); color: #fff; }
+  .send { background: var(--cleared); border-color: var(--cleared); color: #fff; font-weight: 600; }
+
+  .time { font-family: "IBM Plex Mono",ui-monospace,monospace; font-size: 15px;
+          font-variant-numeric: tabular-nums; color: var(--ink-soft); }
+  .time.live { color: var(--live); font-weight: 600; }
+
+  .sent { font-family: "IBM Plex Mono",ui-monospace,monospace; font-size: 11px; font-weight: 600;
+          letter-spacing: .12em; text-transform: uppercase; color: var(--cleared);
+          background: var(--cleared-fill); padding: 3px 7px; }
+
+  audio { width: 100%; min-width: 0; }
+
+  .err { font-size: 13.5px; color: var(--live); }
+
+  .tally { font-family: "IBM Plex Mono",ui-monospace,monospace; font-size: 12px; color: var(--ink-faint);
+           border-top: 2px solid var(--ink); padding-top: 12px; }
+  .sign { font-size: 14.5px; color: var(--ink-soft); margin: 0; }
+  .sign b { color: var(--ink); font-weight: 600; }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="strip">
+    <span class="call">Talk, don't type</span>
+    <span class="meta">Outreach visits</span>
+  </div>
+
+  <div class="how">
+    <p><b>Hit record. Talk. Hit send.</b> That's it.</p>
+    <p>Ramble &mdash; tangents are the good part. Any order, no deadline. Recordings stay
+      on your phone until you tap send, and they survive closing the page.</p>
+    <p><b>Going long?</b> Keep the screen awake while it records &mdash; if the phone locks
+      or you switch apps, iOS can cut it off. For the twenty-minute answers, Voice Memos
+      is the safer bet. Either way works; send me whatever you end up with.</p>
+  </div>
+
+  <div class="warn" id="insecure" hidden>
+    <b>Recording needs a secure connection.</b> Open this page over https and the
+    record buttons will work.
+  </div>
+  <div class="warn" id="unsupported" hidden>
+    <b>This browser can't record here.</b> No problem &mdash; use your phone's voice memo
+    app instead and send them over. The questions below are the same.
+  </div>
+
+  <div id="questions"></div>
+
+  <div class="tally" id="tally">0 of 0 recorded</div>
+
+  <p class="sign"><b>No rush.</b> The first three get me most of the way.</p>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var QUESTIONS = [
+    { group: "If you only do three", big: true, id: "q1",
+      ask: "Who actually says yes when a controller travels to speak?",
+      why: "Their supervisor, the facility, somebody at the national level? This one decides more about how I build this than anything else." },
+    { big: true, id: "q2",
+      ask: "Walk me through one visit, start to finish.",
+      why: "Easiest as three short ones: <b>getting to the day</b>, <b>the day itself</b>, <b>after</b>. Most of it's the first &mdash; that's expected." },
+    { big: true, id: "q3",
+      ask: "Tell me about one that went sideways.",
+      why: "Speaker pulled, room empty, AV dead, they ghosted you. What happened and what you did. Stories teach me things a checklist can't." },
+
+    { group: "The people part", id: "q4",
+      ask: "How do you find controllers willing to go?",
+      why: "And is it the same handful every time?" },
+    { id: "q5",
+      ask: "What happens when a speaker gets pulled a week out?",
+      why: "What you actually do now, not what you wish you did." },
+    { id: "q6",
+      ask: "Who fills the room on their side?",
+      why: "Career office, a professor who likes you, an event organizer, a member group? And do you ever show up to the wrong crowd?" },
+
+    { group: "The logistics part", id: "q7",
+      ask: "How far ahead do you have to lock a date, and what forces that?",
+      why: "Travel paperwork, their calendar, budget timing &mdash; whichever one actually binds." },
+    { id: "q8",
+      ask: "What kinds of places actually host these?",
+      why: "Colleges, trade schools, job fairs, associations, something else entirely? And which ones are worth the trip?" },
+    { id: "q9",
+      ask: "Is every visit the same shape, or does it change by who's hosting?",
+      why: "And if it changes &mdash; on purpose, or because they asked?" },
+    { id: "q10",
+      ask: "What's the rule on a host feeding you or putting you up?",
+      why: "I assume there's a policy. I'd rather hear it from you than guess at it." },
+
+    { group: "Whether it worked", id: "q11",
+      ask: "Someone's genuinely interested. What happens next?",
+      why: "Do you collect anything from them, hand them off, point them somewhere?" },
+    { id: "q12",
+      ask: "Who judges whether this program is working, and on what?",
+      why: "Headcount, applications, something else? I want to build toward the thing you're actually measured on." },
+    { id: "q13",
+      ask: "If you handed this to someone tomorrow, what would they get wrong?",
+      why: "My favorite question. The stuff that isn't written down anywhere." }
+  ];
+
+  // ---- capability checks, before any UI promises recording ----------------
+  var canRecord =
+    window.isSecureContext !== false &&
+    !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) &&
+    typeof window.MediaRecorder !== "undefined";
+
+  if (window.isSecureContext === false) document.getElementById("insecure").hidden = false;
+  else if (!canRecord) document.getElementById("unsupported").hidden = false;
+
+  // Safari records mp4; Chrome/Firefox record webm. Ask, never assume.
+  function pickMime() {
+    var want = ["audio/mp4", "audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus"];
+    if (typeof MediaRecorder === "undefined" || !MediaRecorder.isTypeSupported) return "";
+    for (var i = 0; i < want.length; i++) {
+      if (MediaRecorder.isTypeSupported(want[i])) return want[i];
+    }
+    return "";
+  }
+  function extFor(mime) {
+    if (mime.indexOf("mp4") > -1) return "m4a";
+    if (mime.indexOf("ogg") > -1) return "ogg";
+    return "webm";
+  }
+
+  // ---- storage: IndexedDB, so a locked phone doesn't eat a 15-min answer --
+  var DB = "ngw-voice-brief", STORE = "clips", dbp = null;
+  function db() {
+    if (dbp) return dbp;
+    dbp = new Promise(function (res, rej) {
+      if (!window.indexedDB) { rej(new Error("no idb")); return; }
+      var r = indexedDB.open(DB, 1);
+      r.onupgradeneeded = function () { r.result.createObjectStore(STORE); };
+      r.onsuccess = function () { res(r.result); };
+      r.onerror = function () { rej(r.error); };
+    });
+    return dbp;
+  }
+  function put(key, val) {
+    return db().then(function (d) {
+      return new Promise(function (res, rej) {
+        var tx = d.transaction(STORE, "readwrite");
+        tx.objectStore(STORE).put(val, key);
+        tx.oncomplete = res; tx.onerror = function () { rej(tx.error); };
+      });
+    }).catch(function () { /* storage blocked — clip still lives in memory */ });
+  }
+  function getAll() {
+    return db().then(function (d) {
+      return new Promise(function (res, rej) {
+        var tx = d.transaction(STORE, "readonly"), st = tx.objectStore(STORE);
+        var keys = st.getAllKeys(), vals = st.getAll();
+        tx.oncomplete = function () {
+          var out = {};
+          keys.result.forEach(function (k, i) { out[k] = vals.result[i]; });
+          res(out);
+        };
+        tx.onerror = function () { rej(tx.error); };
+      });
+    }).catch(function () { return {}; });
+  }
+  function del(key) {
+    return db().then(function (d) {
+      return new Promise(function (res) {
+        var tx = d.transaction(STORE, "readwrite");
+        tx.objectStore(STORE).delete(key);
+        tx.oncomplete = res; tx.onerror = res;
+      });
+    }).catch(function () {});
+  }
+
+  // ---- render -------------------------------------------------------------
+  var host = document.getElementById("questions"), current = null, cards = {};
+
+  function el(tag, cls, html) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (html != null) n.innerHTML = html;
+    return n;
+  }
+
+  var group = null;
+  QUESTIONS.forEach(function (q) {
+    if (q.group) {
+      group = el("div", "group");
+      group.appendChild(el("h2", null, q.group));
+      var spacer = el("div");
+      spacer.style.height = "4px";
+      host.appendChild(group);
+      group.style.marginBottom = "18px";
+    }
+    var card = el("article", "q" + (q.big ? " big" : ""));
+    card.appendChild(el("div", "ask", q.ask));
+    card.appendChild(el("div", "why", q.why));
+
+    var row = el("div", "row");
+    var mic = el("button", "mic", canRecord ? "Record" : "Record");
+    mic.type = "button";
+    mic.id = "mic-" + q.id;
+    if (!canRecord) mic.disabled = true;
+    var time = el("span", "time", "");
+    row.appendChild(mic);
+    row.appendChild(time);
+    card.appendChild(row);
+
+    var after = el("div", "row");
+    after.hidden = true;
+    var audio = document.createElement("audio");
+    audio.controls = true;
+    audio.preload = "metadata";
+    var send = el("button", "send", "Send to Todd"); send.type = "button";
+    var save = el("button", null, "Save"); save.type = "button";
+    var again = el("button", null, "Redo"); again.type = "button";
+    var flag = el("span", "sent", "Sent"); flag.hidden = true;
+    after.appendChild(send); after.appendChild(save); after.appendChild(again); after.appendChild(flag);
+    card.appendChild(audio);
+    card.appendChild(after);
+
+    var err = el("div", "err"); err.hidden = true;
+    card.appendChild(err);
+
+    (group || host).appendChild(card);
+
+    cards[q.id] = { q: q, card: card, mic: mic, time: time, after: after,
+                    audio: audio, send: send, save: save, again: again,
+                    flag: flag, err: err, clip: null, url: null };
+
+    mic.addEventListener("click", function () { toggle(q.id); });
+    send.addEventListener("click", function () { share(q.id); });
+    save.addEventListener("click", function () { download(q.id); });
+    again.addEventListener("click", function () { redo(q.id); });
+  });
+
+  function fmt(ms) {
+    var s = Math.floor(ms / 1000);
+    return Math.floor(s / 60) + ":" + ("0" + (s % 60)).slice(-2);
+  }
+
+  function attach(id, clip) {
+    var c = cards[id];
+    c.clip = clip;
+    if (c.url) URL.revokeObjectURL(c.url);
+    c.url = URL.createObjectURL(clip.blob);
+    c.audio.src = c.url;
+    c.after.hidden = false;
+    c.card.classList.add("has-rec");
+    c.mic.hidden = true;
+    c.time.textContent = clip.ms ? fmt(clip.ms) : "";
+    c.time.classList.remove("live");
+    tally();
+  }
+
+  function toggle(id) {
+    var c = cards[id];
+    if (current && current.id === id) { stop(); return; }
+    if (current) { stop(); }
+    start(id);
+  }
+
+  function start(id) {
+    var c = cards[id];
+    c.err.hidden = true;
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
+      var mime = pickMime();
+      var rec = mime ? new MediaRecorder(stream, { mimeType: mime })
+                     : new MediaRecorder(stream);
+      var chunks = [], t0 = Date.now();
+      rec.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
+      rec.onstop = function () {
+        stream.getTracks().forEach(function (t) { t.stop(); }); // release the mic
+        clearInterval(current && current.tick);
+        var type = rec.mimeType || mime || "audio/webm";
+        var blob = new Blob(chunks, { type: type });
+        current = null;
+        c.mic.classList.remove("live");
+        if (!blob.size) { c.err.textContent = "Nothing recorded — try again."; c.err.hidden = false; c.time.textContent = ""; return; }
+        var clip = { blob: blob, type: type, ms: Date.now() - t0 };
+        attach(id, clip);
+        put(id, clip);
+      };
+      rec.start();
+      c.mic.textContent = "Stop";
+      c.mic.classList.add("live");
+      c.time.classList.add("live");
+      c.time.textContent = "0:00";
+      current = {
+        id: id, rec: rec,
+        tick: setInterval(function () { c.time.textContent = fmt(Date.now() - t0); }, 250)
+      };
+    }).catch(function (e) {
+      c.err.textContent = (e && e.name === "NotAllowedError")
+        ? "Mic permission was declined. Allow it in your browser settings, or just use your phone's voice memo app."
+        : "Couldn't start the mic. Your phone's voice memo app works just as well.";
+      c.err.hidden = false;
+    });
+  }
+
+  function stop() {
+    if (!current) return;
+    try { current.rec.stop(); } catch (e) { current = null; }
+  }
+
+  function fileFor(id) {
+    var c = cards[id];
+    var name = "cory-" + id + "." + extFor(c.clip.type);
+    try { return new File([c.clip.blob], name, { type: c.clip.type }); }
+    catch (e) { return null; }
+  }
+
+  function share(id) {
+    var c = cards[id], f = fileFor(id);
+    if (f && navigator.canShare && navigator.canShare({ files: [f] }) && navigator.share) {
+      navigator.share({ files: [f], title: c.q.ask })
+        .then(function () { c.flag.hidden = false; })
+        .catch(function () { /* user backed out — not an error */ });
+    } else {
+      // No share sheet here (desktop, or an older browser). Fall back to a file.
+      download(id);
+      c.err.textContent = "Saved to this device — attach it to a text or email and it's on its way.";
+      c.err.hidden = false;
+    }
+  }
+
+  function download(id) {
+    var c = cards[id];
+    var a = document.createElement("a");
+    a.href = c.url;
+    a.download = "cory-" + id + "." + extFor(c.clip.type);
+    document.body.appendChild(a); a.click(); a.remove();
+    c.flag.hidden = false;
+  }
+
+  function redo(id) {
+    var c = cards[id];
+    if (c.url) { URL.revokeObjectURL(c.url); c.url = null; }
+    c.clip = null; c.audio.removeAttribute("src");
+    c.after.hidden = true; c.flag.hidden = true; c.err.hidden = true;
+    c.card.classList.remove("has-rec");
+    c.mic.hidden = false; c.mic.textContent = "Record";
+    c.time.textContent = "";
+    del(id);
+    tally();
+  }
+
+  function tally() {
+    var ids = Object.keys(cards);
+    var n = ids.filter(function (i) { return !!cards[i].clip; }).length;
+    document.getElementById("tally").textContent = n + " of " + ids.length + " recorded";
+  }
+
+  // restore anything from a previous visit
+  getAll().then(function (saved) {
+    Object.keys(saved).forEach(function (id) {
+      if (cards[id] && saved[id] && saved[id].blob) attach(id, saved[id]);
+    });
+    tally();
+  });
+
+  tally();
+})();
+</script>
+</body>
+</html>

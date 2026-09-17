@@ -1,0 +1,86 @@
+# Publishes index.html to GitHub Pages on every push to main.
+#
+# Pages serves over https, which is not a nicety here: getUserMedia is refused
+# outside a secure context, so the page's record buttons work on the published
+# URL and nowhere else. A local file:// copy will render and will not record.
+#
+# The repo is public because free Pages requires it. That is safe for THIS repo
+# and only this one: it holds a page of questions and a recorder, no client
+# data. Recordings live in the viewer's own browser and are never uploaded
+# anywhere. The planner that consumes the answers stays in a private repo.
+name: Deploy Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # A broken page here is worse than a late one: the practitioner opens the
+      # link once, it does nothing, and he goes back to email. So parse the
+      # inline script before publishing rather than finding out from him.
+      - name: Check the page parses and keeps its capability guards
+        run: |
+          node -e '
+            const fs = require("fs");
+            const s = fs.readFileSync("index.html", "utf8");
+            const open = s.lastIndexOf("<script>");
+            const close = s.lastIndexOf("</script>");
+            if (open < 0 || close < open) {
+              console.error("::error::no inline script found in index.html");
+              process.exit(1);
+            }
+            new Function(s.slice(open + 8, close));   // throws on a syntax error
+
+            const required = [
+              [/window\.isSecureContext !== false/, "secure-context check"],
+              [/MediaRecorder\.isTypeSupported/,    "codec feature detection"],
+              [/navigator\.canShare/,               "share-sheet feature detection"],
+              [/getTracks\(\)\.forEach/,            "microphone released on stop"],
+              [/NotAllowedError/,                   "declined-permission handling"],
+            ];
+            let missing = 0;
+            for (const [re, name] of required) {
+              if (!re.test(s)) { console.error("::error::lost guard: " + name); missing++; }
+            }
+            if (missing) process.exit(1);
+
+            const asks = (s.match(/ask:/g) || []).length;
+            if (asks < 1) { console.error("::error::no questions in the page"); process.exit(1); }
+            console.log("page parses; " + asks + " questions; all capability guards present");
+          '
+
+      # Publish index.html alone. Anything else in the repo — this workflow, the
+      # README — stays out of the served directory.
+      - name: Assemble the site
+        run: |
+          mkdir -p _site
+          cp index.html _site/
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
