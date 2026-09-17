@@ -130,6 +130,12 @@
   .mic.live, .mic.live:hover { background: var(--crit); border-color: var(--crit); color: #16181b; }
   .send { background: var(--steel); border-color: var(--steel); color: var(--fg); }
   .send:hover { background: #56717f; }
+  /* Sending everything at once is the intended path; the per-clip button is
+     the fallback. Filling both makes five accent targets on a page with
+     answers, which is the same "then none of them is primary" failure the
+     accent budget exists to stop. */
+  .clip .send { background: transparent; border-color: var(--border-strong); }
+  .clip .send:hover { background: rgba(255,255,255,.04); }
   .danger.armed, .danger.armed:hover { background: var(--crit); border-color: var(--crit);
                                         color: #16181b; }
 

@@ -240,6 +240,42 @@ const primaries = await page.evaluate(() => {
 check('2.5', 'Accent highlights one primary target per section', primaries <= 1,
       `${primaries} steel-filled buttons visible at rest`);
 
+// 2.5 again, on a page that has answers on it. Measuring only the empty
+// state is how five accent buttons shipped: the budget is a property of the
+// VIEW, and the view changes once he has recorded something.
+const busy = await browser.newContext({ viewport: { width: 390, height: 844 },
+  permissions: ['microphone'] });
+const bp = await busy.newPage();
+await bp.goto('http://localhost:8735/', { waitUntil: 'load' });
+for (const q of ['q1', 'q1', 'q4']) {
+  await bp.locator('#mic-' + q).click();
+  await bp.waitForTimeout(900);
+  await bp.locator('#mic-' + q).click();
+  await bp.waitForTimeout(700);
+}
+const busyAccent = await bp.evaluate(() => {
+  const want = getComputedStyle(document.documentElement).getPropertyValue('--steel').trim().toLowerCase();
+  const hex = (x) => '#' + (x.match(/\d+/g) || []).slice(0, 3)
+    .map((v) => (+v).toString(16).padStart(2, '0')).join('');
+  return [...document.querySelectorAll('.board *')]
+    .filter((e) => e.offsetParent !== null && hex(getComputedStyle(e).backgroundColor) === want).length;
+});
+const clipCount = await bp.locator('.clip').count();
+check('2.5b', 'Accent budget holds once the page has answers on it', busyAccent <= 1,
+      `${busyAccent} steel-filled with ${clipCount} clips present`);
+const busySurf = await bp.evaluate((declared) => {
+  const hex = (x) => '#' + (x.match(/\d+/g) || []).slice(0, 3)
+    .map((v) => (+v).toString(16).padStart(2, '0')).join('');
+  return [...document.querySelectorAll('body, .board, .card, .q, .clip, .warn, .standing')]
+    .filter((e) => e !== document.body ? e.offsetParent !== null : true)
+    .map((e) => hex(getComputedStyle(e).backgroundColor))
+    .filter((c) => c !== '#000000' || false)
+    .filter((c, i, a) => a.indexOf(c) === i)
+    .filter((c) => !declared.includes(c));
+}, PALETTE);
+check('1.2b', 'Surfaces stay on-token with clips rendered', busySurf.length === 0, busySurf.join(' '));
+await busy.close();
+
 await browser.close();
 server.close();
 
