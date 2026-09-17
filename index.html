@@ -56,6 +56,10 @@
                  letter-spacing: .12em; text-transform: uppercase; color: var(--strip-meta); margin-left: auto; }
 
   .how { background: var(--amber-fill); border-left: 3px solid var(--amber); padding: 13px 15px; }
+  .how ol { margin: 8px 0 0; padding-left: 20px; display: flex; flex-direction: column; gap: 5px; }
+  .how li { font-size: 14.5px; }
+  .how .alt { margin-top: 11px; padding-top: 10px; border-top: 1px solid rgba(179,116,0,.28);
+              font-size: 14px; }
   .how p { margin: 0 0 7px; } .how p:last-child { margin: 0; } .how b { font-weight: 600; }
 
   .warn { background: var(--live-fill); border-left: 3px solid var(--live); padding: 13px 15px; color: var(--ink); }
@@ -71,6 +75,11 @@
        display: flex; flex-direction: column; gap: 11px; }
   .q.big { border-left: 3px solid var(--amber); }
   .q.has-rec { background: var(--panel-done); }
+  .qhead { display: flex; align-items: baseline; gap: 10px; }
+  .qnum { flex: none; font-family: "IBM Plex Mono",ui-monospace,monospace;
+          font-size: 12px; font-weight: 600; letter-spacing: .06em;
+          color: var(--amber); background: var(--amber-fill);
+          padding: 3px 7px; border-radius: 2px; }
   .ask { font-size: 16px; font-weight: 500; text-wrap: balance; }
   .why { font-size: 13.5px; color: var(--ink-soft); }
   .why b { font-weight: 600; color: var(--ink); }
@@ -126,12 +135,22 @@
   </div>
 
   <div class="how">
-    <p><b>Hit record. Talk. Hit send.</b> That's it.</p>\n    <p>Thought of more later? Hit <b>Add another</b> on that question &mdash; it keeps what you already recorded.</p>
-    <p>Ramble &mdash; tangents are the good part. Any order, no deadline. Recordings stay
-      on your phone until you tap send, and they survive closing the page.</p>
-    <p><b>Going long?</b> Keep the screen awake while it records &mdash; if the phone locks
-      or you switch apps, iOS can cut it off. For the twenty-minute answers, Voice Memos
-      is the safer bet. Either way works; send me whatever you end up with.</p>
+    <p><b>Use Voice Memos on your phone.</b> It handles long answers better than
+      any web page can, and it writes you a transcript.</p>
+    <ol>
+      <li>Open <b>Voice Memos</b> and hit record.</li>
+      <li><b>Say the question number first</b> &mdash; "Question two&hellip;" &mdash; then
+        answer. That's the only bookkeeping I need; don't bother renaming files.</li>
+      <li>Ramble. Tangents are the good part.</li>
+      <li>Share &rarr; Messages &rarr; me. Several at once is fine.</li>
+    </ol>
+    <p class="alt"><b>If a transcript shows up under the recording, send that too</b>
+      &mdash; saves me a step. Newer iPhones do this on their own; older ones don't,
+      and the audio alone is fine either way.</p>
+    <p class="alt"><b>Short answer, right now?</b> Hit <b>Record</b> on any question
+      below and it records here instead &mdash; no app, no naming, nothing to think
+      about. Good for the quick ones. For the twenty-minute walkthrough, use Voice
+      Memos: if the phone locks or you switch apps, a web recording can get cut off.</p>
   </div>
 
   <div class="warn" id="insecure" hidden>
@@ -292,7 +311,12 @@
       group.style.marginBottom = "18px";
     }
     var card = el("article", "q" + (q.big ? " big" : ""));
-    card.appendChild(el("div", "ask", q.ask));
+    var head = el("div", "qhead");
+    // The number is the whole filing system: he says it out loud at the top of a
+    // Voice Memo, and that is what ties "New Recording 7" back to this question.
+    head.appendChild(el("span", "qnum", "Q" + q.id.slice(1)));
+    head.appendChild(el("span", "ask", q.ask));
+    card.appendChild(head);
     card.appendChild(el("div", "why", q.why));
 
     var clips = el("div", "clips");

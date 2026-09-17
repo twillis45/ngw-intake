@@ -43,6 +43,16 @@ ok((await page.locator('article.q audio:visible').count()) === 0, 'no dead audio
 ok(!(await page.locator('#sendall').isVisible()), 'Send all hidden with nothing recorded');
 ok((await page.locator('#mic-q1').textContent()) === 'Record', 'button reads Record first time');
 
+const badges = await page.locator('.qnum').allTextContents();
+ok(badges.join(',') === Array.from({length: 13}, (_, i) => 'Q' + (i + 1)).join(','),
+   `question badges run Q1..Q13 in order (${badges.slice(0, 3).join(',')}...)`);
+const firstAsk = await page.locator('article.q').first().locator('.ask').textContent();
+ok(/controller travels to speak/.test(firstAsk), 'Q1 badge sits on the release-authority question');
+ok(/Say the question number first/.test(await page.locator('.how').textContent()),
+   'instructions tell him to say the number');
+ok(/Voice Memos/.test(await page.locator('.how').textContent()),
+   'Voice Memos named as the main path');
+
 async function record(id, ms) {
   await page.locator('#mic-' + id).click();
   await page.waitForTimeout(ms);
