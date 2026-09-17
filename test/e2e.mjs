@@ -414,6 +414,70 @@ ok(/your own sentences/.test(await dupPage.locator('.syn-note').textContent()),
    'the page says plainly where the lines came from');
 await dup.close();
 
+// Found by speaking real audio into the page: when the recogniser cannot get
+// the microphone it errors immediately, onend fires, and restarting from onend
+// unconditionally spins start -> error -> end as fast as the browser allows.
+// Measured at 6,555 cycles in one 14-second recording — battery and CPU burned
+// at the moment he is talking, for a feature that is optional anyway.
+console.log('\n=== a failing recogniser does not spin ===');
+const spin = await browser.newContext({ permissions: ['microphone'],
+  viewport: { width: 390, height: 844 } });
+await spin.addInitScript(() => {
+  window.__starts = 0;
+  function Broken() {}
+  Broken.prototype.start = function () {
+    window.__starts += 1;
+    setTimeout(() => {
+      this.onerror && this.onerror({ error: 'audio-capture' });
+      this.onend && this.onend();
+    }, 5);
+  };
+  Broken.prototype.stop = function () { this.onend && this.onend(); };
+  window.SpeechRecognition = Broken; window.webkitSpeechRecognition = Broken;
+});
+const sp = await spin.newPage();
+await sp.goto('http://localhost:8731/', { waitUntil: 'load' });
+await sp.locator('#mic-q1').click();
+await sp.waitForTimeout(4000);
+const starts = await sp.evaluate(() => window.__starts);
+ok(starts <= 5, `a recogniser that always fails is retried a few times, not thousands (${starts})`);
+await sp.locator('#mic-q1').click();
+await sp.waitForTimeout(900);
+ok((await sp.locator('article.q').first().locator('.clip').count()) === 1,
+   'and the recording it was riding alongside still files');
+
+await spin.close();
+
+// A declined microphone is a decision, not a glitch — never re-ask in a loop.
+// The page reads the constructor once at init, so this needs its own context
+// rather than a swap after load.
+const denied = await browser.newContext({ permissions: ['microphone'],
+  viewport: { width: 390, height: 844 } });
+await denied.addInitScript(() => {
+  window.__starts = 0;
+  function Denied() {}
+  Denied.prototype.start = function () {
+    window.__starts += 1;
+    setTimeout(() => {
+      this.onerror && this.onerror({ error: 'not-allowed' });
+      this.onend && this.onend();
+    }, 5);
+  };
+  Denied.prototype.stop = function () { this.onend && this.onend(); };
+  window.SpeechRecognition = Denied; window.webkitSpeechRecognition = Denied;
+});
+const dn = await denied.newPage();
+await dn.goto('http://localhost:8731/', { waitUntil: 'load' });
+await dn.locator('#mic-q1').click();
+await dn.waitForTimeout(2500);
+ok((await dn.evaluate(() => window.__starts)) === 1,
+   `a declined microphone is asked for exactly once (${await dn.evaluate(() => window.__starts)})`);
+await dn.locator('#mic-q1').click();
+await dn.waitForTimeout(900);
+ok((await dn.locator('article.q').first().locator('.clip').count()) === 1,
+   'and the recording is unaffected by the refusal');
+await denied.close();
+
 // No transcripts, no synopsis — an empty panel would be worse than none.
 const nosyn = await browser.newContext({ permissions: ['microphone'],
   viewport: { width: 390, height: 844 } });

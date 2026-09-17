@@ -625,6 +625,12 @@
     // A session still has to be folded away on end, because the page restarts
     // recognition through pauses and a restart resets ev.results to empty.
     var committed = "", session = "";
+    // Restart discipline. onend fires after every error too, so restarting
+    // from it unconditionally spins start -> error -> end as fast as the
+    // browser allows: measured at ~470 cycles a second for the length of the
+    // recording when the recogniser cannot get the microphone. That is battery
+    // and CPU burned at the exact moment he is talking.
+    var fails = 0, lastStart = 0, retry = null;
     function fold() { committed += session; session = ""; }
     var tidy = function (t) { return t.replace(/\s+/g, " ").trim(); };
     r.onresult = function (ev) {
@@ -634,16 +640,38 @@
         if (ev.results[i].isFinal) fin += chunk; else interim += chunk;
       }
       session = fin;
+      fails = 0;                   // it is working; forget earlier stumbles
       onText(tidy(committed + session + interim), tidy(committed + session));
     };
-    // Recognition stops itself on a long pause; restart while the recording runs.
-    r.onend = function () { fold(); if (r.__wanted) { try { r.start(); } catch (e) {} } };
-    r.onerror = function () {};
+    r.onerror = function (e) {
+      var kind = (e && e.error) || "";
+      // Declining the microphone is a decision, not a glitch. Never re-ask.
+      if (kind === "not-allowed" || kind === "service-not-allowed") { r.__wanted = false; return; }
+      // "no-speech" is the service behaving correctly through a silence.
+      if (kind !== "no-speech") fails += 1;
+    };
+    // Recognition stops itself on a long pause; restart while the recording
+    // runs — but spaced out, and not forever. Dictation that has failed three
+    // times is not going to start working inside this one recording, and the
+    // recording itself is unaffected either way.
+    r.onend = function () {
+      fold();
+      if (!r.__wanted) return;
+      if (fails >= 3) { r.__wanted = false; return; }
+      var wait = Math.max(0, 500 - (Date.now() - lastStart));
+      retry = setTimeout(function () {
+        if (!r.__wanted) return;
+        lastStart = Date.now();
+        try { r.start(); } catch (e) {}
+      }, wait);
+    };
     r.__wanted = true;
+    lastStart = Date.now();
     try { r.start(); } catch (e) { return null; }
     return {
       stop: function () {
         r.__wanted = false;
+        if (retry) { clearTimeout(retry); retry = null; }
         try { r.stop(); } catch (e) {}
         fold();                      // onend may not have landed yet
         return tidy(committed);
