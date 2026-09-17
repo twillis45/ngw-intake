@@ -118,6 +118,9 @@
   .clip audio { flex: 1 1 100%; width: 100%; min-width: 0; height: 34px; }
   audio { width: 100%; min-width: 0; }
 
+  .said { flex: 1 1 100%; font-size: 14px; color: var(--ink-soft); line-height: 1.45;
+          border-left: 1px solid var(--rule); padding-left: 12px; margin-top: 2px; }
+  .said.pending { color: var(--ink-faint); font-style: italic; }
   .err  { font-size: 14px; color: var(--live); flex: 1 1 100%; }
   .note { font-size: 14px; color: var(--ink-soft); flex: 1 1 100%; }
 
@@ -185,6 +188,10 @@
         off if your phone locks.</li>
       <li>Anything you record here stays in this browser on this phone until you
         send it &mdash; open the link the same way each time.</li>
+      <li id="dictation-note" hidden>Your phone writes each one out as you talk, and the
+        text goes along with the audio. That part uses the same dictation your
+        keyboard uses, so it passes through Apple the way Messages dictation
+        does &mdash; the recording itself still goes nowhere but to me.</li>
     </ul>
   </div>
 
@@ -210,21 +217,6 @@
   <div class="err" id="sendall-err" hidden></div>
   <p class="tallynote">Recording in Voice Memos instead? This counter won’t see those
     &mdash; that’s fine, it’s the better way.</p>
-
-  <div class="check">
-    <h2>Optional &mdash; see what you said</h2>
-    <p>Paste a transcript and it’ll pull out the bits that stood out, grouped by
-      topic, in your own words. Handy if you want to skim what you covered before
-      you send it. It stays on your phone &mdash; nothing is uploaded anywhere.</p>
-    <label class="fieldlabel" for="tx">Transcript</label>
-    <textarea id="tx" placeholder="Paste a transcript&hellip;"></textarea>
-    <div class="row">
-      <button type="button" id="checkbtn">Show summary</button>
-      <button type="button" id="copybtn" hidden>Copy synopsis</button>
-      <button type="button" id="clearbtn" class="danger">Clear</button>
-    </div>
-    <div class="verdict" id="verdict" aria-live="polite"></div>
-  </div>
 
   <p class="sign"><b>No rush, no order, no labels.</b> The first three get me most of the way.</p>
   <p class="contact">Stuck, or something looks wrong? <b>Text me &mdash; <span id="contact-me">[ADD YOUR NUMBER]</span></b></p>
@@ -437,6 +429,12 @@
 
     rowEl.appendChild(part); rowEl.appendChild(dur); rowEl.appendChild(audio);
     rowEl.appendChild(send); rowEl.appendChild(del); rowEl.appendChild(flag);
+    if (clip.said) {
+      var said = el("div", "said");
+      said.textContent = clip.said;
+      rowEl.appendChild(said);
+      rec.saidEl = said;
+    }
     c.clipsEl.appendChild(rowEl);
     rec.el = rowEl; rec.flag = flag; rec.delBtn = del;
 
@@ -500,6 +498,44 @@
     tally();
   }
 
+  // ---- dictation ---------------------------------------------------------
+  // The phone writes it out while he talks, so the text rides along with the
+  // audio and he never copies or pastes anything. Entirely optional: where it
+  // is missing or fails, the recording is unaffected and nothing is said.
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var canDictate = !!SR && canRecord;
+  if (canDictate) document.getElementById("dictation-note").hidden = false;
+
+  function startDictation(onText) {
+    if (!canDictate) return null;
+    var r;
+    try { r = new SR(); } catch (e) { return null; }
+    r.continuous = true;
+    r.interimResults = true;
+    r.lang = navigator.language || "en-US";
+    var settled = "";
+    r.onresult = function (ev) {
+      var interim = "";
+      for (var i = ev.resultIndex; i < ev.results.length; i++) {
+        var chunk = ev.results[i][0].transcript;
+        if (ev.results[i].isFinal) settled += chunk; else interim += chunk;
+      }
+      onText((settled + interim).trim(), settled.trim());
+    };
+    // Recognition stops itself on a long pause; restart while the recording runs.
+    r.onend = function () { if (r.__wanted) { try { r.start(); } catch (e) {} } };
+    r.onerror = function () {};
+    r.__wanted = true;
+    try { r.start(); } catch (e) { return null; }
+    return {
+      stop: function () {
+        r.__wanted = false;
+        try { r.stop(); } catch (e) {}
+        return settled.trim();
+      }
+    };
+  }
+
   // ---- recording ----------------------------------------------------------
   // Every recorder owns its own timer and stream in this closure. `current` is
   // only an identity check — an older recorder stopping late can no longer
@@ -543,6 +579,7 @@
       }
 
       var chunks = [], t0 = Date.now(), tick = null, done = false;
+      var heard = "", dict = null;
       var mine = {
         id: id,
         stop: function () { try { rec.stop(); } catch (e) { finish(true); } }
@@ -552,6 +589,7 @@
         if (done) return;
         done = true;
         clearInterval(tick);
+        if (dict) { heard = dict.stop() || heard; dict = null; }
         stream.getTracks().forEach(function (t) { t.stop(); }); // release the mic
         if (current === mine) current = null;
         setBusy(id, false);
@@ -580,7 +618,7 @@
           say(c, "Nothing recorded \u2014 try again. If it happens twice, use your phone\u2019s voice memo app.");
           return;
         }
-        var clip = { blob: blob, type: type, ms: ms };
+        var clip = { blob: blob, type: type, ms: ms, said: heard };
         var added = addClip(id, clip);
         put(added.key, clip).catch(function () {
           // The card already looks answered; it must not look SAFE as well.
@@ -594,6 +632,11 @@
         say(c, "Couldn\u2019t start recording. Use your phone\u2019s voice memo app for this one.");
         return;
       }
+
+      dict = startDictation(function (live) {
+        c.time.dataset.said = live;   // live text is shown on the clip once filed
+        heard = live;
+      });
 
       current = mine;
       starting = false;
@@ -637,11 +680,21 @@
   });
 
   // ---- sharing ------------------------------------------------------------
+  function baseName(id, rec) {
+    return "cory-" + id + "-part" + (cards[id].clips.indexOf(rec) + 1);
+  }
   function fileFor(id, rec) {
-    var c = cards[id];
-    var n = c.clips.indexOf(rec) + 1;
-    var name = "cory-" + id + "-part" + n + "." + extFor(rec.clip.type);
+    var name = baseName(id, rec) + "." + extFor(rec.clip.type);
     try { return new File([rec.clip.blob], name, { type: rec.clip.type }); }
+    catch (e) { return null; }
+  }
+  // The transcript travels as its own text file beside the audio — no copying,
+  // no pasting, and it survives being forwarded.
+  function textFor(id, rec) {
+    if (!rec.clip.said) return null;
+    var c = cards[id];
+    var body = c.q.ask.replace(/<[^>]+>/g, "") + "\n\n" + rec.clip.said + "\n";
+    try { return new File([body], baseName(id, rec) + ".txt", { type: "text/plain" }); }
     catch (e) { return null; }
   }
 
@@ -649,8 +702,10 @@
     var c = cards[id];
     say(c, "");
     var f = fileFor(id, rec);
-    if (f && navigator.canShare && navigator.canShare({ files: [f] }) && navigator.share) {
-      navigator.share({ files: [f], title: c.q.ask })
+    var t = textFor(id, rec);
+    var bundle = t ? [f, t] : [f];
+    if (f && navigator.canShare && navigator.canShare({ files: bundle }) && navigator.share) {
+      navigator.share({ files: bundle, title: c.q.ask })
         .then(function () { markSent(rec, "shared"); })
         .catch(function (e) {
           // AbortError is him closing the sheet. Anything else genuinely failed
@@ -684,10 +739,9 @@
 
     var files = [];
     try {
-      files = items.map(function (it) {
-        return new File([it.rec.clip.blob],
-          "cory-" + it.id + "-part" + it.n + "." + extFor(it.rec.clip.type),
-          { type: it.rec.clip.type });
+      items.forEach(function (it) {
+        var a = fileFor(it.id, it.rec); if (a) files.push(a);
+        var b = textFor(it.id, it.rec); if (b) files.push(b);
       });
     } catch (e) { files = []; }
 
@@ -718,136 +772,6 @@
   }
 
   document.getElementById("sendall").addEventListener("click", sendAll);
-
-  // ---- transcript summary -------------------------------------------------
-  var SIGNALS = {
-    q1:  ["releas","supervisor","facility manager","sign off","signs off","approv","staffing","coverage","let them go","chain of command"],
-    q2:  ["first email","reach out","reached out","lock the date","book the","run of show","arrive","set up","afterward","follow up"],
-    q3:  ["went wrong","fell through","cancel","disaster","nightmare","no-show","no show","blew up","bad one","sideways"],
-    q4:  ["volunteer","ask around","who wants","recruit","roster","same people","same handful","sign up"],
-    q5:  ["pulled","recall","backup","back up","fill in","cover for","scramble","short notice"],
-    q6:  ["career office","career services","faculty","professor","student org","advisor","promote","turnout","fill the room","flyer"],
-    q7:  ["weeks out","months out","lead time","how far ahead","ahead of time","paperwork","deadline","approval takes"],
-    q8:  ["college","universit","trade school","technical","community college","job fair","association","conference"],
-    q9:  ["same format","same every","varies","depend","tailor","custom","agenda","shorter","longer session"],
-    q10: ["lunch","meal","feed us","hotel","lodging","per diem","ethics","gift","accept","pay for"],
-    q11: ["apply","application","hiring","usajobs","website","follow up","contact them","collect","email list","hand off"],
-    q12: ["metric","measure","numbers","report","headcount","how many appl","success","budget","justify","leadership"],
-    q13: ["get wrong","learn the hard way","mistake","didn't realize","did not realize","advice","biggest thing","took me years"]
-  };
-  function sentences(raw) {
-    return raw.replace(/\s+/g, " ").split(/(?<=[.!?])\s+|\n+/)
-      .map(function (x) { return x.trim(); })
-      .filter(function (x) { return x.length > 25; });
-  }
-  function quotesFor(sents, terms) {
-    var scored = sents.map(function (sen) {
-      var low = sen.toLowerCase();
-      var n = terms.filter(function (t) { return low.indexOf(t) !== -1; }).length;
-      return { sen: sen, n: n };
-    }).filter(function (x) { return x.n > 0; });
-    scored.sort(function (a, b) { return b.n - a.n; });
-    return scored.slice(0, 2).map(function (x) {
-      return x.sen.length > 220 ? x.sen.slice(0, 217) + "\u2026" : x.sen;
-    });
-  }
-
-  var lastSynopsis = "";
-
-  function showSummary() {
-    var raw = document.getElementById("tx").value || "";
-    var out = document.getElementById("verdict");
-    out.textContent = "";
-    lastSynopsis = "";
-    document.getElementById("copybtn").hidden = true;
-
-    if (raw.trim().length < 40) {
-      out.appendChild(el("p", null, "Paste a bit more and I\u2019ll have something to work with."));
-      return;
-    }
-
-    // No verdicts, no scoring. A question nothing matched is simply left out —
-    // marking it missing reads as a grade, and the matcher is not good enough
-    // to be grading anyone's answers.
-    var sents = sentences(raw), lines = [], shown = 0;
-
-    QUESTIONS.forEach(function (q) {
-      var qs = quotesFor(sents, SIGNALS[q.id] || []);
-      if (!qs.length) return;
-      shown++;
-      var row = el("div", "vrow");
-      row.appendChild(el("span", null, "<b>" + q.ask + "</b>"));
-      var ul = el("ul", "quotes");
-      qs.forEach(function (t) {
-        var li = document.createElement("li");
-        li.textContent = "\u201C" + t + "\u201D";
-        ul.appendChild(li);
-      });
-      row.appendChild(ul);
-      out.appendChild(row);
-      lines.push(q.ask.replace(/<[^>]+>/g, ""));
-      qs.forEach(function (t) { lines.push("  \u2022 " + t); });
-      lines.push("");
-    });
-
-    if (!shown) {
-      out.appendChild(el("p", null,
-        "Nothing jumped out \u2014 which usually means it\u2019s matching on the wrong " +
-        "words, not that you didn\u2019t say anything. Send it over and I\u2019ll read it properly."));
-      return;
-    }
-
-    out.insertBefore(el("p", null,
-      "Here\u2019s what stood out, in your words. It\u2019s picking on keywords rather " +
-      "than understanding you, so treat it as a skim, not a checklist."), out.firstChild);
-
-    lastSynopsis = lines.join("\n").trim();
-    document.getElementById("copybtn").hidden = !lastSynopsis;
-  }
-
-  document.getElementById("checkbtn").addEventListener("click", showSummary);
-
-  document.getElementById("copybtn").addEventListener("click", function () {
-    var btn = this, out = document.getElementById("verdict");
-    var ok = function () {
-      btn.textContent = "Copied";
-      setTimeout(function () { btn.textContent = "Copy synopsis"; }, 1600);
-    };
-    // Never overwrite the textarea on failure — that is his pasted transcript,
-    // and losing it to a fallback would cost more than the copy was worth.
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(lastSynopsis).then(ok, function () {
-        out.insertBefore(el("p", "err",
-          "Couldn\u2019t copy \u2014 select the summary above and copy it by hand."), out.firstChild);
-      });
-    } else {
-      out.insertBefore(el("p", "err",
-        "Copying isn\u2019t available here \u2014 select the summary above and copy it by hand."), out.firstChild);
-    }
-  });
-
-  // Clear discards a transcript that was painful to paste, so it confirms once.
-  (function () {
-    var btn = document.getElementById("clearbtn"), armed = null;
-    btn.addEventListener("click", function () {
-      var tx = document.getElementById("tx");
-      if (!tx.value && !document.getElementById("verdict").textContent) return;
-      if (armed || !tx.value) {
-        clearTimeout(armed); armed = null;
-        btn.textContent = "Clear"; btn.classList.remove("armed");
-        tx.value = "";
-        document.getElementById("verdict").textContent = "";
-        document.getElementById("copybtn").hidden = true;
-        lastSynopsis = "";
-        return;
-      }
-      btn.textContent = "Clear the box?";
-      btn.classList.add("armed");
-      armed = setTimeout(function () {
-        armed = null; btn.textContent = "Clear"; btn.classList.remove("armed");
-      }, 4000);
-    });
-  })();
 
   // ---- tally --------------------------------------------------------------
   function tally() {

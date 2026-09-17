@@ -63,16 +63,11 @@ ok(/Text me/.test(await page.locator('.contact').textContent()), 'a way to reach
 
 console.log('\n=== guidelines ===');
 ok((await page.locator('h1').count()) === 1, 'exactly one h1');
-ok((await page.locator('label[for="tx"]').count()) === 1, 'textarea has a real label');
-// A JS escape in an HTML attribute renders literally — invisible to a parse
+// A JS escape written into markup renders literally — invisible to a parse
 // check, obvious to anyone looking at the page.
-const ph = await page.locator('#tx').getAttribute('placeholder');
-ok(!/\\u[0-9a-f]{4}/i.test(ph), `placeholder has no raw escape (${ph})`);
-ok(/\u2026$/.test(ph), 'placeholder ends with a real ellipsis');
 const bodyText = await page.locator('body').innerText();
 ok(!/\\u[0-9a-f]{4}/i.test(bodyText), 'no literal \\uXXXX anywhere on the rendered page');
 ok((await page.locator('#tally').getAttribute('aria-live')) === 'polite', 'tally is announced');
-ok((await page.locator('#verdict').getAttribute('aria-live')) === 'polite', 'summary is announced');
 ok(await page.locator('button').first().evaluate((b) => getComputedStyle(b).touchAction === 'manipulation'),
    'buttons set touch-action: manipulation');
 ok(await page.locator('#mic-q1').evaluate((b) => parseFloat(getComputedStyle(b).minHeight) >= 44),
@@ -175,34 +170,23 @@ await page.waitForTimeout(1100);
 ok((await page.locator('#tally').textContent()).includes('3 of 13 answered'), 'restored after reload');
 ok(!(await page.locator('#restorefail').isVisible()), 'no false restore-failure banner');
 
-console.log('\n=== transcript summary ===');
-await page.locator('#tx').fill('too short');
-await page.locator('#checkbtn').click();
-ok(/Paste a bit more/.test(await page.locator('#verdict').textContent()), 'refuses a scrap');
+console.log('\n=== dictation degrades silently ===');
+// Chromium here has no working speech service, so this proves the path nobody
+// should ever notice: no transcript, no error, recording unaffected.
+const dict = await page.evaluate(() => ({
+  api: !!(window.SpeechRecognition || window.webkitSpeechRecognition),
+  noteShown: !document.getElementById('dictation-note').hidden,
+}));
+ok(dict.noteShown === dict.api,
+   `the dictation note appears only where dictation exists (api=${dict.api})`);
+ok((await page.locator('.said').count()) === 0 || dict.api,
+   'no transcript block without dictation');
+ok((await card(0).locator('.clip').count()) > 0, 'recordings still file with dictation absent');
 
-await page.locator('#tx').fill(
-  'So the way it works is the controller has to be released by their facility. ' +
-  'The facility manager is the one who signs off, because it comes down to ' +
-  'staffing and coverage on the day. If they are short we are not going anywhere.');
-await page.locator('#checkbtn').click();
-const vtext = await page.locator('#verdict').textContent();
-ok(!/sounds covered|not seen|came through/i.test(vtext), 'no verdicts or grades');
-const shown = await page.locator('.vrow').count();
-ok(shown >= 1 && shown < 13, `only topics with something to show (${shown} of 13)`);
-const quoted = await page.locator('.vrow').first().locator('.quotes li').allTextContents();
-const pasted = await page.locator('#tx').inputValue();
-const norm = (x) => x.replace(/[\u201C\u201D"]/g, '').replace(/\s+/g, ' ').trim();
-ok(quoted.length >= 1 && quoted.every((q) => norm(pasted).includes(norm(q).replace(/\u2026$/, ''))),
-   'every quote is verbatim from the transcript — nothing invented');
-
-// Clear must not discard a painful paste on one stray tap.
-await page.locator('#clearbtn').click();
-await page.waitForTimeout(200);
-ok((await page.locator('#tx').inputValue()).length > 0, 'first Clear tap keeps the transcript');
-ok((await page.locator('#clearbtn').textContent()) === 'Clear the box?', 'Clear arms first');
-await page.locator('#clearbtn').click();
-await page.waitForTimeout(200);
-ok((await page.locator('#tx').inputValue()) === '', 'second tap clears');
+ok((await page.locator('#tx').count()) === 0, 'the paste box is gone');
+ok((await page.locator('#checkbtn').count()) === 0, 'the summary button is gone');
+const pageText = await page.locator('body').innerText();
+ok(!/[Pp]aste a transcript/.test(pageText), 'nothing asks him to paste anything');
 
 console.log('\n=== layout ===');
 ok(!(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1)),
