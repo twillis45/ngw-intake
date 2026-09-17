@@ -135,18 +135,10 @@
   textarea:focus-visible { outline: 2px solid var(--amber); outline-offset: 1px; }
   .verdict { display: flex; flex-direction: column; gap: 7px; }
   .vrow { display: flex; gap: 9px; align-items: baseline; font-size: 14px; }
-  .vtag { flex: none; font-family: "IBM Plex Mono",ui-monospace,monospace;
-          font-size: 10px; font-weight: 600; letter-spacing: .1em;
-          text-transform: uppercase; padding: 2px 6px; border-radius: 2px; }
-  .vtag.heard  { color: var(--cleared); background: var(--cleared-fill); }
-  .vtag.maybe  { color: var(--amber);   background: var(--amber-fill); }
-  .vtag.missing{ color: var(--live);    background: var(--live-fill); }
   .vrow { flex-wrap: wrap; }
   .quotes { flex: 1 1 100%; margin: 4px 0 0; padding-left: 18px;
             display: flex; flex-direction: column; gap: 4px; }
   .quotes li { font-size: 13.5px; color: var(--ink-soft); line-height: 1.4; }
-  .gap { font-size: 13.5px; color: var(--ink-faint); flex: 1 1 100%;
-         padding-left: 18px; font-style: italic; }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
@@ -192,14 +184,13 @@
   <div class="err" id="sendall-err" hidden></div>
 
   <div class="check">
-    <h3>Optional &mdash; check yourself</h3>
-    <p>Paste a transcript here and I'll guess which questions it covers. It stays
-      on your phone; nothing is sent anywhere. It's a <b>rough</b> guess &mdash;
-      if it calls something missing that you know you answered, ignore it. It quotes
-      you back rather than paraphrasing, so you can see exactly what registered.</p>
+    <h3>Optional &mdash; see what you said</h3>
+    <p>Paste a transcript and it'll pull out the bits that stood out, grouped by
+      topic, in your own words. Handy if you want to skim what you covered before
+      you send it. It stays on your phone &mdash; nothing is uploaded anywhere.</p>
     <textarea id="tx" placeholder="Paste a transcript&hellip;"></textarea>
     <div class="row">
-      <button type="button" id="checkbtn">Check coverage</button>
+      <button type="button" id="checkbtn">Show summary</button>
       <button type="button" id="copybtn" hidden>Copy synopsis</button>
       <button type="button" id="clearbtn">Clear</button>
     </div>
@@ -606,51 +597,53 @@
     var text = raw.toLowerCase();
     var out = document.getElementById("verdict");
     out.textContent = "";
+    lastSynopsis = "";
+    document.getElementById("copybtn").hidden = true;
+
     if (text.trim().length < 40) {
-      out.appendChild(el("p", null, "Paste a bit more and I'll have something to go on."));
+      out.appendChild(el("p", null, "Paste a bit more and I'll have something to work with."));
       return;
     }
-    var heard = 0, sents = sentences(raw), lines = [], gaps = [];
+
+    // No verdicts, no scoring. A question nothing matched is simply left out —
+    // marking it "not seen" reads as a grade, and the matcher is not good
+    // enough to be grading anyone's answers.
+    var sents = sentences(raw), lines = [], shown = 0;
+
     QUESTIONS.forEach(function (q) {
       var terms = SIGNALS[q.id] || [];
-      var hits = terms.filter(function (t) { return text.indexOf(t) !== -1; }).length;
-      var cls = hits >= 2 ? "heard" : (hits === 1 ? "maybe" : "missing");
-      var label = hits >= 2 ? "sounds covered" : (hits === 1 ? "maybe" : "not seen");
-      if (hits >= 2) heard++;
+      var qs = quotesFor(sents, terms);
+      if (!qs.length) return;
+      shown++;
       var row = el("div", "vrow");
-      row.appendChild(el("span", "vtag " + cls, label));
-      row.appendChild(el("span", null, "<b>Q" + q.id.slice(1) + "</b> &nbsp;" + q.ask));
-      if (hits > 0) {
-        var qs = quotesFor(sents, terms);
-        if (qs.length) {
-          var ul = el("ul", "quotes");
-          qs.forEach(function (t) {
-            var li = document.createElement("li");
-            li.textContent = "\u201C" + t + "\u201D";
-            ul.appendChild(li);
-          });
-          row.appendChild(ul);
-          lines.push("Q" + q.id.slice(1) + " — " + q.ask.replace(/<[^>]+>/g, ""));
-          qs.forEach(function (t) { lines.push("  • " + t); });
-          lines.push("");
-        }
-      } else {
-        var g = el("div", "gap");
-        g.textContent = "nothing in the transcript looked like an answer to this";
-        row.appendChild(g);
-        gaps.push("Q" + q.id.slice(1) + " — " + q.ask.replace(/<[^>]+>/g, ""));
-      }
+      row.appendChild(el("span", null, "<b>" + q.ask + "</b>"));
+      var ul = el("ul", "quotes");
+      qs.forEach(function (t) {
+        var li = document.createElement("li");
+        li.textContent = "\u201C" + t + "\u201D";
+        ul.appendChild(li);
+      });
+      row.appendChild(ul);
       out.appendChild(row);
+
+      lines.push(q.ask.replace(/<[^>]+>/g, ""));
+      qs.forEach(function (t) { lines.push("  \u2022 " + t); });
+      lines.push("");
     });
 
-    if (gaps.length) { lines.push("Not seen:"); gaps.forEach(function (g) { lines.push("  • " + g); }); }
-    lastSynopsis = lines.join("\n");
+    if (!shown) {
+      out.appendChild(el("p", null,
+        "Nothing jumped out &mdash; which usually means it's matching on the " +
+        "wrong words, not that you didn't say anything. Send it over and I'll read it properly."));
+      return;
+    }
+
+    out.insertBefore(el("p", null,
+      "Here's what stood out, in your words. It's picking on keywords rather " +
+      "than understanding you, so treat it as a skim, not a checklist."), out.firstChild);
+
+    lastSynopsis = lines.join("\n").trim();
     document.getElementById("copybtn").hidden = !lastSynopsis;
-    out.insertBefore(
-      el("p", null, "Looks like <b>" + heard + " of " + QUESTIONS.length +
-        "</b> came through. Anything marked <b>not seen</b> is worth a look &mdash; " +
-        "but this is keyword matching, not comprehension, so it will get some wrong."),
-      out.firstChild);
   }
 
   document.getElementById("checkbtn").addEventListener("click", checkCoverage);

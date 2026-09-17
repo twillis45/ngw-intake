@@ -115,55 +115,49 @@ ok((await page.locator('article.q').first().locator('.clip').count()) === 0, 'no
 ok((await page.locator('#mic-q1').textContent()) === 'Record', 'button back to Record');
 ok((await page.locator('#tally').textContent()).includes('1 of 13 answered'), 'tally drops to 1');
 
-console.log('\n=== transcript coverage checker ===');
+console.log('\n=== transcript summary ===');
 await page.locator('#tx').fill('too short');
 await page.locator('#checkbtn').click();
 ok(/Paste a bit more/.test(await page.locator('#verdict').textContent()),
-   'refuses to guess from a scrap');
+   'refuses to work from a scrap');
 
-// The guarantee that matters: unrelated prose must claim NOTHING. A false
-// "covered" makes him stop, and that answer is then lost for good.
-await page.locator('#tx').fill(
-  'I went to the store this morning and bought bread, milk and a newspaper. ' +
-  'The weather was pleasant so I walked home through the park and sat on a ' +
-  'bench watching the ducks for a while before heading back to the house.');
-await page.locator('#checkbtn').click();
-const noiseHeard = await page.locator('.vtag.heard').count();
-ok(noiseHeard === 0, `unrelated prose claims nothing covered (saw ${noiseHeard})`);
-
-// A real answer to Q1 should register, and should not drag others with it.
 await page.locator('#tx').fill(
   'So the way it works is the controller has to be released by their facility. ' +
   'The facility manager is the one who signs off, because it comes down to ' +
   'staffing and coverage on the day. If they are short we are not going ' +
   'anywhere no matter what I have booked.');
 await page.locator('#checkbtn').click();
-const rows = await page.locator('.vrow').count();
-ok(rows === 13, 'a verdict row per question');
-const q1tag = await page.locator('.vrow').first().locator('.vtag').textContent();
-ok(q1tag === 'sounds covered', `Q1 registers from a real answer (got "${q1tag}")`);
-const heardNow = await page.locator('.vtag.heard').count();
-ok(heardNow <= 3, `a single answer does not light up the whole list (${heardNow} covered)`);
-ok(/not comprehension/.test(await page.locator('#verdict').textContent()),
-   'states its own limitation in the result');
 
-console.log('\n=== synopsis quotes him back ===');
+const vtext = await page.locator('#verdict').textContent();
+ok(!/sounds covered|not seen|maybe|came through/i.test(vtext),
+   'no verdicts, scores or grades anywhere in the output');
+ok((await page.locator('.vtag').count()) === 0, 'no verdict tags rendered');
+ok((await page.locator('.gap').count()) === 0, 'unmatched questions are omitted, not flagged');
+
+const shown = await page.locator('.vrow').count();
+ok(shown >= 1 && shown < 13, `only topics with something to show appear (${shown} of 13)`);
 const quoted = await page.locator('.vrow').first().locator('.quotes li').allTextContents();
-ok(quoted.length >= 1, `Q1 shows what registered (${quoted.length} quote(s))`);
+ok(quoted.length >= 1, `shows what stood out (${quoted.length} quote(s))`);
 ok(/facility manager|signs off|released by their facility/.test(quoted.join(' ')),
-   'the quote is the sentence that actually answered it');
-// Extractive, not generative: every quoted line must appear in what he pasted.
+   'the quote is the sentence that carried the answer');
+
+// Extractive, not generative — the guarantee that survives every rewrite.
 const pasted = await page.locator('#tx').inputValue();
 const norm = (x) => x.replace(/[\u201C\u201D"]/g, '').replace(/\s+/g, ' ').trim();
 ok(quoted.every((q) => norm(pasted).includes(norm(q).replace(/\u2026$/, ''))),
    'every quote is verbatim from the transcript — nothing invented');
-const gapCount = await page.locator('.gap').count();
-ok(gapCount >= 10, `unanswered questions say so plainly (${gapCount} marked)`);
-ok(await page.locator('#copybtn').isVisible(), 'Copy synopsis offered once there is one');
+ok(await page.locator('#copybtn').isVisible(), 'Copy synopsis offered');
+
+await page.locator('#tx').fill(
+  'I walked to the shop this morning for bread and milk, then sat in the park ' +
+  'watching the ducks for a while before heading back home again.');
+await page.locator('#checkbtn').click();
+ok(/Nothing jumped out/.test(await page.locator('#verdict').textContent()),
+   'unrelated prose says so gently, without implying he failed');
 
 await page.locator('#clearbtn').click();
-ok(!(await page.locator('#copybtn').isVisible()), 'Copy hidden again after Clear');
-ok((await page.locator('#verdict').textContent()).trim() === '', 'Clear empties the verdict');
+ok(!(await page.locator('#copybtn').isVisible()), 'Copy hidden after Clear');
+ok((await page.locator('#verdict').textContent()).trim() === '', 'Clear empties the summary');
 ok((await page.locator('#tx').inputValue()) === '', 'Clear empties the box');
 
 console.log('\n=== layout ===');
