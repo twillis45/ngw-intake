@@ -115,6 +115,42 @@ ok((await page.locator('article.q').first().locator('.clip').count()) === 0, 'no
 ok((await page.locator('#mic-q1').textContent()) === 'Record', 'button back to Record');
 ok((await page.locator('#tally').textContent()).includes('1 of 13 answered'), 'tally drops to 1');
 
+console.log('\n=== transcript coverage checker ===');
+await page.locator('#tx').fill('too short');
+await page.locator('#checkbtn').click();
+ok(/Paste a bit more/.test(await page.locator('#verdict').textContent()),
+   'refuses to guess from a scrap');
+
+// The guarantee that matters: unrelated prose must claim NOTHING. A false
+// "covered" makes him stop, and that answer is then lost for good.
+await page.locator('#tx').fill(
+  'I went to the store this morning and bought bread, milk and a newspaper. ' +
+  'The weather was pleasant so I walked home through the park and sat on a ' +
+  'bench watching the ducks for a while before heading back to the house.');
+await page.locator('#checkbtn').click();
+const noiseHeard = await page.locator('.vtag.heard').count();
+ok(noiseHeard === 0, `unrelated prose claims nothing covered (saw ${noiseHeard})`);
+
+// A real answer to Q1 should register, and should not drag others with it.
+await page.locator('#tx').fill(
+  'So the way it works is the controller has to be released by their facility. ' +
+  'The facility manager is the one who signs off, because it comes down to ' +
+  'staffing and coverage on the day. If they are short we are not going ' +
+  'anywhere no matter what I have booked.');
+await page.locator('#checkbtn').click();
+const rows = await page.locator('.vrow').count();
+ok(rows === 13, 'a verdict row per question');
+const q1tag = await page.locator('.vrow').first().locator('.vtag').textContent();
+ok(q1tag === 'sounds covered', `Q1 registers from a real answer (got "${q1tag}")`);
+const heardNow = await page.locator('.vtag.heard').count();
+ok(heardNow <= 3, `a single answer does not light up the whole list (${heardNow} covered)`);
+ok(/not comprehension/.test(await page.locator('#verdict').textContent()),
+   'states its own limitation in the result');
+
+await page.locator('#clearbtn').click();
+ok((await page.locator('#verdict').textContent()).trim() === '', 'Clear empties the verdict');
+ok((await page.locator('#tx').inputValue()) === '', 'Clear empties the box');
+
 console.log('\n=== layout ===');
 const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
 ok(!overflow, 'no horizontal scroll at 390px');

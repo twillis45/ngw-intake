@@ -123,6 +123,24 @@
   .footer-bar { border-top: 2px solid var(--ink); padding-top: 12px;
                 display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
   .footer-bar .tally { border-top: none; padding-top: 0; flex: 1 1 auto; }
+  .check { border-top: 2px solid var(--ink); padding-top: 14px;
+           display: flex; flex-direction: column; gap: 10px; }
+  .check h3 { margin: 0; font-family: "IBM Plex Mono",ui-monospace,monospace;
+              font-size: 11px; font-weight: 600; letter-spacing: .16em;
+              text-transform: uppercase; color: var(--ink-faint); }
+  .check p { margin: 0; font-size: 14px; color: var(--ink-soft); }
+  textarea { width: 100%; min-height: 110px; padding: 11px; font: inherit;
+             font-size: 14px; color: var(--ink); background: var(--panel);
+             border: 1px solid var(--rule-soft); border-radius: 2px; resize: vertical; }
+  textarea:focus-visible { outline: 2px solid var(--amber); outline-offset: 1px; }
+  .verdict { display: flex; flex-direction: column; gap: 7px; }
+  .vrow { display: flex; gap: 9px; align-items: baseline; font-size: 14px; }
+  .vtag { flex: none; font-family: "IBM Plex Mono",ui-monospace,monospace;
+          font-size: 10px; font-weight: 600; letter-spacing: .1em;
+          text-transform: uppercase; padding: 2px 6px; border-radius: 2px; }
+  .vtag.heard  { color: var(--cleared); background: var(--cleared-fill); }
+  .vtag.maybe  { color: var(--amber);   background: var(--amber-fill); }
+  .vtag.missing{ color: var(--live);    background: var(--live-fill); }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
@@ -166,6 +184,19 @@
     <button type="button" id="sendall" class="send" hidden>Send all</button>
   </div>
   <div class="err" id="sendall-err" hidden></div>
+
+  <div class="check">
+    <h3>Optional &mdash; check yourself</h3>
+    <p>Paste a transcript here and I'll guess which questions it covers. It stays
+      on your phone; nothing is sent anywhere. It's a <b>rough</b> guess &mdash;
+      if it calls something missing that you know you answered, ignore it.</p>
+    <textarea id="tx" placeholder="Paste a transcript&hellip;"></textarea>
+    <div class="row">
+      <button type="button" id="checkbtn">Check coverage</button>
+      <button type="button" id="clearbtn">Clear</button>
+    </div>
+    <div class="verdict" id="verdict"></div>
+  </div>
 
   <p class="sign"><b>No rush, no order, no labels.</b> The first three get me most of the way.</p>
 </div>
@@ -521,6 +552,59 @@
   }
 
   document.getElementById("sendall").addEventListener("click", sendAll);
+
+  // Deliberately biased toward under-claiming. A wrong "missing" costs him one
+  // re-record; a wrong "covered" loses the answer for good, because he stops.
+  // So: two independent signals to claim anything, one to say maybe.
+  var SIGNALS = {
+    q1:  ["releas","supervisor","facility manager","sign off","signs off","approv","staffing","coverage","let them go","chain of command"],
+    q2:  ["first email","reach out","reached out","lock the date","book the","run of show","arrive","set up","afterward","follow up"],
+    q3:  ["went wrong","fell through","cancel","disaster","nightmare","no-show","no show","blew up","bad one","sideways"],
+    q4:  ["volunteer","ask around","who wants","recruit","roster","same people","same handful","sign up"],
+    q5:  ["pulled","recall","backup","back up","fill in","cover for","scramble","short notice"],
+    q6:  ["career office","career services","faculty","professor","student org","advisor","promote","turnout","fill the room","flyer"],
+    q7:  ["weeks out","months out","lead time","how far ahead","ahead of time","paperwork","deadline","approval takes"],
+    q8:  ["college","universit","trade school","technical","community college","job fair","association","conference"],
+    q9:  ["same format","same every","varies","depend","tailor","custom","agenda","shorter","longer session"],
+    q10: ["lunch","meal","feed us","hotel","lodging","per diem","ethics","gift","accept","pay for"],
+    q11: ["apply","application","hiring","usajobs","website","follow up","contact them","collect","email list","hand off"],
+    q12: ["metric","measure","numbers","report","headcount","how many appl","success","budget","justify","leadership"],
+    q13: ["get wrong","learn the hard way","mistake","didn't realize","did not realize","advice","biggest thing","took me years"]
+  };
+
+  function checkCoverage() {
+    var raw = document.getElementById("tx").value || "";
+    var text = raw.toLowerCase();
+    var out = document.getElementById("verdict");
+    out.textContent = "";
+    if (text.trim().length < 40) {
+      out.appendChild(el("p", null, "Paste a bit more and I'll have something to go on."));
+      return;
+    }
+    var heard = 0;
+    QUESTIONS.forEach(function (q) {
+      var terms = SIGNALS[q.id] || [];
+      var hits = terms.filter(function (t) { return text.indexOf(t) !== -1; }).length;
+      var cls = hits >= 2 ? "heard" : (hits === 1 ? "maybe" : "missing");
+      var label = hits >= 2 ? "sounds covered" : (hits === 1 ? "maybe" : "not seen");
+      if (hits >= 2) heard++;
+      var row = el("div", "vrow");
+      row.appendChild(el("span", "vtag " + cls, label));
+      row.appendChild(el("span", null, "<b>Q" + q.id.slice(1) + "</b> &nbsp;" + q.ask));
+      out.appendChild(row);
+    });
+    out.insertBefore(
+      el("p", null, "Looks like <b>" + heard + " of " + QUESTIONS.length +
+        "</b> came through. Anything marked <b>not seen</b> is worth a look &mdash; " +
+        "but this is keyword matching, not comprehension, so it will get some wrong."),
+      out.firstChild);
+  }
+
+  document.getElementById("checkbtn").addEventListener("click", checkCoverage);
+  document.getElementById("clearbtn").addEventListener("click", function () {
+    document.getElementById("tx").value = "";
+    document.getElementById("verdict").textContent = "";
+  });
 
   function tally() {
     var ids = Object.keys(cards);
