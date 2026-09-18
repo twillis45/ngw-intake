@@ -439,6 +439,69 @@ await dup.close();
 // one zip — and the archive has to be real, not bytes that merely look like one.
 // Not everyone wants to hear themselves talk. Typing has to be a real way to
 // answer — saved, counted, restored and delivered exactly like a recording.
+// Twenty minutes of answers has to be sendable. The browser default measured
+// 129 kbps — 0.92 MB a minute, 18 MB for twenty — which no text message will
+// carry and email barely will. One voice does not need that.
+console.log('\n=== a recording is sized for sending ===');
+const bit = await browser.newContext({ permissions: ['microphone'],
+  viewport: { width: 390, height: 844 } });
+const bp = await bit.newPage();
+await bp.goto('http://localhost:8731/', { waitUntil: 'load' });
+await bp.locator('#mic-q1').click();
+await bp.waitForTimeout(6000);
+await bp.locator('#mic-q1').click();
+await bp.waitForTimeout(1200);
+const weight = await bp.evaluate(async () => {
+  const a = document.querySelector('article.q audio');
+  const blob = await fetch(a.src).then((r) => r.blob());
+  const ctx = new AudioContext();
+  const buf = await ctx.decodeAudioData(await blob.arrayBuffer());
+  await ctx.close();
+  return { bytes: blob.size, secs: buf.duration };
+});
+const kbps = (weight.bytes * 8) / weight.secs / 1000;
+ok(kbps < 60, `speech is recorded at a sendable rate (${Math.round(kbps)} kbps)`);
+const perTwenty = (weight.bytes / weight.secs) * 1200 / 1024 / 1024;
+ok(perTwenty < 8, `twenty minutes would weigh ${perTwenty.toFixed(1)} MB, not 18`);
+ok(/\d+ (KB|MB|B)/.test(await bp.locator('#downloadall').textContent()),
+   'and the button says what the bundle weighs before he sends it');
+ok(await bp.locator('#sizewarn').isHidden(), 'no size warning while it is small');
+await bit.close();
+
+// The warning branch, without recording for four minutes: a stubbed recorder
+// that hands back a blob too big for a text message.
+const big = await browser.newContext({ permissions: ['microphone'],
+  viewport: { width: 390, height: 844 } });
+await big.addInitScript(() => {
+  const Real = window.MediaRecorder;
+  function Fat(stream, opts) {
+    const r = new Real(stream, opts);
+    const origStop = r.stop.bind(r);
+    r.stop = function () {
+      // one and a half megabytes, which no carrier MMS will take
+      r.dispatchEvent(new BlobEvent('dataavailable',
+        { data: new Blob([new Uint8Array(1500 * 1024)], { type: 'audio/mp4' }) }));
+      origStop();
+    };
+    return r;
+  }
+  Fat.isTypeSupported = Real.isTypeSupported.bind(Real);
+  window.MediaRecorder = Fat;
+});
+const gp = await big.newPage();
+await gp.goto('http://localhost:8731/', { waitUntil: 'load' });
+await gp.locator('#mic-q1').click();
+await gp.waitForTimeout(1200);
+await gp.locator('#mic-q1').click();
+await gp.waitForTimeout(1400);
+const warn = gp.locator('#sizewarn');
+ok(await warn.isVisible(), 'a bundle too big for a text message says so');
+const wt = await warn.textContent();
+ok(/MB/.test(wt) && /text message/.test(wt),
+   'and names the weight and the limit rather than just failing later');
+ok(/iMessage|Google Messages|email/.test(wt), 'and says what will carry it instead');
+await big.close();
+
 console.log('\n=== typing is a first-class answer ===');
 const typ = await browser.newContext({ permissions: ['microphone'],
   viewport: { width: 390, height: 844 }, acceptDownloads: true });

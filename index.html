@@ -295,6 +295,7 @@
       <button type="button" id="sendall" class="send" hidden>Text them to Todd</button>
       <button type="button" id="downloadall" class="second" hidden>Save them all as one file</button>
       <div class="err" id="sendall-err" hidden></div>
+      <p class="note" id="sizewarn" hidden></p>
       <p class="tallynote" id="tally" aria-live="polite">Nothing recorded on this page yet.</p>
       <p class="tallynote">Recording in Voice Memos instead? This counter won’t see
         those &mdash; that’s fine, it’s the better way. It only counts what you
@@ -858,8 +859,21 @@
     navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
       var mime = pickMime();
       var rec;
+      // Measured: the browser default runs about 129 kbps, which is 0.92 MB a
+      // minute — twenty minutes of answers is 18 MB, past what a text message
+      // will carry and awkward even for email. 32 kbps is generous for one
+      // voice and lands the same twenty minutes at 4.7 MB. Some browsers
+      // ignore the hint; none of them should fail on it, but fall back anyway.
+      var opts = mime ? { mimeType: mime } : {};
+      opts.audioBitsPerSecond = 32000;
+      try { rec = new MediaRecorder(stream, opts); }
+      catch (e0) {
+        try {
+          rec = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+        } catch (e1) { rec = null; }
+      }
       try {
-        rec = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+        if (!rec) throw new Error("no recorder");
       } catch (e) {
         stream.getTracks().forEach(function (t) { t.stop(); });
         starting = false; resetBtn(c);
@@ -1067,6 +1081,24 @@
       out.push({ name: "cory-" + id + "-typed.txt", bytes: enc.encode(body) });
     });
     return out;
+  }
+
+  // What the whole bundle weighs, so he is never surprised by a file a text
+  // message will refuse. Audio is already compressed, so the zip is the sum of
+  // its parts plus a little framing.
+  function bundleBytes() {
+    var n = 0;
+    Object.keys(cards).forEach(function (id) {
+      cards[id].clips.forEach(function (r) { n += (r.clip.blob && r.clip.blob.size) || 0; });
+      var t = typedText(id);
+      if (t) n += t.length + 200;
+    });
+    return n;
+  }
+  function humanSize(n) {
+    if (n < 1024) return n + " B";
+    if (n < 1024 * 1024) return Math.round(n / 1024) + " KB";
+    return (n / 1024 / 1024).toFixed(1) + " MB";
   }
 
   function bytesOf(blob) {
@@ -1371,8 +1403,23 @@
     // the whole route, so it gets the accent and says what it is for.
     dl.className = canShareFiles ? "second" : "send";
     var bundleCount = total + typedCount;
-    dl.textContent = canShareFiles ? "Save them all as one file instead"
-                                   : "Save all " + bundleCount + " as one file to text me";
+    var size = bundleBytes();
+    dl.textContent = (canShareFiles ? "Save them all as one file instead"
+                                    : "Save all " + bundleCount + " as one file to text me")
+                     + (size ? "  \u00b7  " + humanSize(size) : "");
+
+    // A plain text message caps out around a megabyte on most carriers, while
+    // iMessage and Google Messages carry far more. He should know which side
+    // of that line he is on BEFORE he tries to send it.
+    var warn = document.getElementById("sizewarn");
+    if (size > 900 * 1024) {
+      warn.hidden = false;
+      warn.textContent = "That is " + humanSize(size) + ". An ordinary text message tops out " +
+        "near 1 MB, so this needs iMessage, Google Messages, email or AirDrop \u2014 or send " +
+        "a few questions at a time using the button on each recording.";
+    } else {
+      warn.hidden = true;
+    }
   }
 
   // ---- restore ------------------------------------------------------------
