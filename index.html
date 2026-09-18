@@ -632,6 +632,12 @@
 
     rowEl.appendChild(part); rowEl.appendChild(dur); rowEl.appendChild(audio);
     rowEl.appendChild(send); rowEl.appendChild(del); rowEl.appendChild(flag);
+    if (clip.silent) {
+      var quiet = el("div", "note");
+      quiet.textContent = "No sound on this one \u2014 the microphone picked nothing up.";
+      quiet.style.color = "var(--crit)";
+      rowEl.appendChild(quiet);
+    }
     if (clip.said) {
       var said = el("div", "said");
       said.textContent = clip.said;
@@ -883,6 +889,18 @@
 
       var chunks = [], t0 = Date.now(), tick = null, done = false;
       var heard = "", dict = null, meter = null;
+      // A microphone that delivers silence is the worst failure this page has:
+      // the card looks answered, the clip has a duration, and there is nothing
+      // in it. Seen on a MacBook where the browser had permission and an open
+      // stream that carried no sound at all. So the page listens to its own
+      // recording and says something rather than filing an empty answer.
+      var sawSound = false, peak = 0, silenceWarn = null, meterStarted = false;
+      // Sound has to be SUSTAINED to count. Opening an audio stream emits a
+      // transient click, and latching on one frame of that let a stone-dead
+      // microphone disarm the silence check entirely — the exact failure this
+      // is here to catch. Eight frames is about a seventh of a second: any
+      // syllable clears it, a pop does not.
+      var loudFrames = 0;
       var bar = c.level.firstChild;
       var mine = {
         id: id,
@@ -893,6 +911,7 @@
         if (done) return;
         done = true;
         clearInterval(tick);
+        if (silenceWarn) { clearTimeout(silenceWarn); silenceWarn = null; }
         if (meter) { meter.stop(); meter = null; }
         c.level.hidden = true;
         bar.style.width = "0";
@@ -919,6 +938,7 @@
       };
       rec.onstop = function () {
         var ms = Date.now() - t0;
+        var meterRan = peak > 0 || sawSound || meterStarted;
         var type = rec.mimeType || mime || "audio/webm";
         var blob = new Blob(chunks, { type: type });
         finish(false);
@@ -927,8 +947,14 @@
           say(c, "Nothing recorded \u2014 try again. If it happens twice, use your phone\u2019s voice memo app.");
           return;
         }
-        var clip = { blob: blob, type: type, ms: ms, said: heard };
+        var clip = { blob: blob, type: type, ms: ms, said: heard,
+                     silent: meterRan && !sawSound && ms > 1500, peak: peak };
         var added = addClip(id, clip);
+        if (clip.silent) {
+          say(c, "That recording came out silent \u2014 nothing reached the microphone. " +
+                 "It is saved, but there is nothing on it. Check your input device, or " +
+                 "use the typing box on this question instead.");
+        }
         put(added.key, clip).catch(function () {
           // The card already looks answered; it must not look SAFE as well.
           say(c, "Saved in this tab only \u2014 your phone wouldn\u2019t store it. Send this one now, before you close the page.");
@@ -951,8 +977,31 @@
       });
       meter = startMeter(stream, function (lvl) {
         bar.style.width = Math.round(lvl * 100) + "%";
+        if (Date.now() - t0 < 300) return;        // ignore the stream-open pop
+        if (lvl > peak) peak = lvl;
+        if (lvl > 0.03) {
+          loudFrames += 1;
+          if (loudFrames >= 8 && !sawSound) {
+            sawSound = true;
+            if (silenceWarn) { clearTimeout(silenceWarn); silenceWarn = null; }
+            if (c.err.dataset.silence === "1") { say(c, ""); c.err.dataset.silence = ""; }
+          }
+        } else {
+          loudFrames = 0;
+        }
       });
       c.level.hidden = !meter;
+      meterStarted = !!meter;
+      // Tell him in four seconds, not after twenty minutes of talking.
+      if (meter) {
+        silenceWarn = setTimeout(function () {
+          if (sawSound || done) return;
+          c.err.dataset.silence = "1";
+          say(c, "Your microphone isn\u2019t picking anything up \u2014 this is recording " +
+                 "silence. Check which input device is selected in your system sound " +
+                 "settings, then start again.");
+        }, 4000);
+      }
 
       current = mine;
       starting = false;
@@ -1378,7 +1427,8 @@
   function tally() {
     var ids = Object.keys(cards);
     var answered = ids.filter(function (i) {
-      return cards[i].clips.length > 0 || typedText(i);
+      var real = cards[i].clips.filter(function (r) { return !r.clip.silent; }).length;
+      return real > 0 || typedText(i);
     }).length;
     var total = ids.reduce(function (n, i) { return n + cards[i].clips.length; }, 0);
     document.getElementById("fig-answered").textContent = answered + "/" + ids.length;

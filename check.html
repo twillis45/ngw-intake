@@ -166,6 +166,13 @@
         var ctx = new AC(), src = ctx.createMediaStreamSource(st), an = ctx.createAnalyser();
         an.fftSize = 512; src.connect(an);
         if (ctx.state === "suspended" && ctx.resume) ctx.resume();
+        // A suspended AudioContext reads as silence, which would accuse a
+        // perfectly good microphone. Report the state so a flat meter can
+        // never be blamed on the wrong thing.
+        row(s4, "Audio engine state", ctx.state, ctx.state === "running" ? "yes" : "maybe",
+            ctx.state === "running" ? "" :
+            "Not running, so the level below may read low for that reason rather than " +
+            "because the microphone is dead.");
         var buf = new Uint8Array(an.fftSize), peak = 0, t0 = Date.now();
         (function loop() {
           an.getByteTimeDomainData(buf);

@@ -442,6 +442,59 @@ await dup.close();
 // Twenty minutes of answers has to be sendable. The browser default measured
 // 129 kbps — 0.92 MB a minute, 18 MB for twenty — which no text message will
 // carry and email barely will. One voice does not need that.
+// Found on a real MacBook: Safari had permission and an open audio stream that
+// carried NO SOUND. Two independent systems agreed — an AnalyserNode saw a flat
+// signal and Safari's own recogniser fired audiostart but never soundstart. The
+// page filed that as a perfectly good answer: a card that looks done, a clip
+// with a duration, and nothing inside it. That is the worst failure here,
+// because he only finds out after twenty minutes of talking.
+console.log('\n=== a silent microphone is called out, not filed as an answer ===');
+const deaf = await chromium.launch({
+  executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+  // no --use-file-for-fake-audio-capture, so the fake device emits silence
+  args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'],
+});
+const dctx = await deaf.newContext({ permissions: ['microphone'],
+  viewport: { width: 390, height: 844 } });
+const dp2 = await dctx.newPage();
+await dp2.goto('http://localhost:8731/', { waitUntil: 'load' });
+await dp2.locator('#mic-q1').click();
+await dp2.waitForTimeout(5200);
+const warned = await dp2.locator('article.q').first().locator('.err:visible, .note:visible').first();
+const liveWarn = await warned.count() ? await warned.textContent() : '';
+ok(/isn\u2019t picking anything up|picking anything up/.test(liveWarn),
+   'it says so within a few seconds, not after twenty minutes');
+await dp2.locator('#mic-q1').click();
+await dp2.waitForTimeout(1200);
+ok((await dp2.locator('article.q').first().locator('.clip').count()) === 1,
+   'the recording is still kept — his call, not mine');
+const noteCount = await dp2.locator('article.q').first().locator('.clip .note').count();
+const clipNote = noteCount
+  ? await dp2.locator('article.q').first().locator('.clip .note').first().textContent() : '';
+ok(noteCount === 1 && /No sound on this one/.test(clipNote),
+   `the clip itself is marked as empty (${noteCount} marks: "${clipNote.slice(0, 40)}")`);
+ok((await dp2.locator('#fig-answered').textContent()) === '0/13',
+   'a silent recording does not count as an answer given');
+await deaf.close();
+
+// And with real sound present, none of that fires.
+console.log('\n=== and a real recording is left alone ===');
+const heard2 = await browser.newContext({ permissions: ['microphone'],
+  viewport: { width: 390, height: 844 } });
+const hp2 = await heard2.newPage();
+await hp2.goto('http://localhost:8731/', { waitUntil: 'load' });
+await hp2.locator('#mic-q1').click();
+await hp2.waitForTimeout(5200);
+const noFalse = await hp2.locator('article.q').first().locator('.err:visible').count();
+ok(noFalse === 0, 'no silence warning while the microphone is working');
+await hp2.locator('#mic-q1').click();
+await hp2.waitForTimeout(1200);
+ok((await hp2.locator('article.q').first().locator('.clip .note').count()) === 0,
+   'and the clip is not marked empty');
+ok((await hp2.locator('#fig-answered').textContent()) === '1/13',
+   'a real recording counts as an answer');
+await heard2.close();
+
 console.log('\n=== a recording is sized for sending ===');
 const bit = await browser.newContext({ permissions: ['microphone'],
   viewport: { width: 390, height: 844 } });
