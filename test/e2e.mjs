@@ -414,6 +414,11 @@ const asks = await Promise.all(boxes.map((b) => b.getAttribute('placeholder')));
 ok(asks.every((a) => a && !/paste|transcript/i.test(a)),
    'no box asks him to paste a transcript — typing is for answering, not transcribing');
 ok(boxes.length === 13, `every question offers typing as well as recording (${boxes.length})`);
+// The page must not tell him not to do the thing it offers.
+const h1 = await dupPage.locator('h1').textContent();
+ok(!/don\u2019t type|don't type/i.test(h1), `the title does not contradict the typing box (${h1})`);
+ok(/Type it instead/.test(await dupPage.locator('.how').textContent()),
+   'and the instructions mention typing as a real option');
 ok(/your own sentences/.test(await dupPage.locator('.syn-note').textContent()),
    'the page says plainly where the lines came from');
 await dup.close();
