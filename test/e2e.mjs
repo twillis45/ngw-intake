@@ -419,6 +419,40 @@ await dup.close();
 // unconditionally spins start -> error -> end as fast as the browser allows.
 // Measured at 6,555 cycles in one 14-second recording — battery and CPU burned
 // at the moment he is talking, for a feature that is optional anyway.
+// MediaRecorder reports the type it negotiated with its parameters attached —
+// "audio/mp4;codecs=opus" was observed in this very suite. Web Share matches a
+// file against an allowlist of BARE types, so a codecs parameter makes
+// canShare() answer false and every share silently becomes a download. This is
+// the shape of the failure reported from an iPad, a MacBook and a Samsung.
+console.log('\n=== the shared file carries a bare media type ===');
+const mime = await browser.newContext({ permissions: ['microphone'],
+  viewport: { width: 390, height: 844 } });
+const mp = await mime.newPage();
+await mp.addInitScript(() => {
+  window.__offered = [];
+  Object.defineProperty(navigator, 'canShare', {
+    value: (d) => { window.__offered.push(d.files.map((f) => f.type)); return true; },
+    configurable: true });
+  Object.defineProperty(navigator, 'share', { value: () => Promise.resolve(), configurable: true });
+});
+await mp.goto('http://localhost:8731/', { waitUntil: 'load' });
+await mp.locator('#mic-q1').click();
+await mp.waitForTimeout(1100);
+await mp.locator('#mic-q1').click();
+await mp.waitForTimeout(900);
+const recorded = await mp.evaluate(() => document.querySelector('article.q audio') ? true : false);
+ok(recorded, 'a clip exists to share');
+await mp.locator('article.q').first().locator('button.send').click();
+await mp.waitForTimeout(500);
+const offered = await mp.evaluate(() => window.__offered);
+const types = offered.flat();
+ok(types.length > 0, `a file was offered to the share sheet (${types.join(', ')})`);
+ok(types.every((t) => t.indexOf(';') === -1),
+   `no offered file carries media-type parameters (${types.join(', ')})`);
+ok(types.some((t) => /^audio\//.test(t)), 'the audio file is offered as an audio type');
+const names = await mp.evaluate(() => window.__names || []);
+await mime.close();
+
 console.log('\n=== a failing recogniser does not spin ===');
 const spin = await browser.newContext({ permissions: ['microphone'],
   viewport: { width: 390, height: 844 } });

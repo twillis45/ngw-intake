@@ -390,6 +390,14 @@
     if (mime.indexOf("ogg") > -1) return "ogg";
     return "webm";
   }
+  // MediaRecorder reports the full media type it negotiated, parameters and
+  // all — "audio/mp4;codecs=opus" is a real observed value. Web Share matches
+  // a file against an allowlist of BARE types, so a codecs parameter makes
+  // canShare() answer false and the whole share path silently falls back to a
+  // download. Strip it for anything that has to name a file type.
+  function bareType(mime) {
+    return String(mime || "").split(";")[0].trim().toLowerCase();
+  }
 
   // ---- storage ------------------------------------------------------------
   // Failures are surfaced, never swallowed: a clip that did not persist is a
@@ -896,8 +904,9 @@
     return "cory-" + id + "-part" + (cards[id].clips.indexOf(rec) + 1);
   }
   function fileFor(id, rec) {
-    var name = baseName(id, rec) + "." + extFor(rec.clip.type);
-    try { return new File([rec.clip.blob], name, { type: rec.clip.type }); }
+    var type = bareType(rec.clip.type) || "audio/mp4";
+    var name = baseName(id, rec) + "." + extFor(type);
+    try { return new File([rec.clip.blob], name, { type: type }); }
     catch (e) { return null; }
   }
   // The transcript travels as its own text file beside the audio — no copying,
@@ -932,15 +941,18 @@
     }
     var a = document.createElement("a");
     a.href = rec.url;
-    a.download = "cory-" + id + "-part" + (c.clips.indexOf(rec) + 1) + "." + extFor(rec.clip.type);
+    a.download = "cory-" + id + "-part" + (c.clips.indexOf(rec) + 1) + "." + extFor(bareType(rec.clip.type));
     document.body.appendChild(a); a.click(); a.remove();
     // A download is a request, not a receipt: iOS may route it to Files, to a
     // download prompt, or nowhere at all. The badge says what is certain.
     rec.flag.hidden = false;
     rec.flag.textContent = "Not sent";
     rec.flag.className = "flag local";
-    say(c, "This browser can\u2019t hand files to Messages, so it tried to download this one instead. " +
-           "If your phone saved it, attach it to a text \u2014 nothing has been sent yet.", "note");
+    var why = !navigator.share ? "This browser has no share button to hand files to"
+            : !navigator.canShare ? "This browser can share links but not files"
+            : "This browser refused to share this file type";
+    say(c, why + ", so it tried to download this recording instead. If it saved, " +
+           "attach it to a text \u2014 nothing has been sent yet.", "note");
   }
 
   function allClips() {

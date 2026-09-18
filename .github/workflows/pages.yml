@@ -46,6 +46,16 @@ jobs:
             }
             new Function(s.slice(open + 8, close));   // throws on a syntax error
 
+            // check.html is a diagnostic the practitioner is asked to open on a
+            // misbehaving device. A page that throws there is worse than none.
+            const d = fs.readFileSync("check.html", "utf8");
+            const dopen = d.lastIndexOf("<script>"), dclose = d.lastIndexOf("</script>");
+            if (dopen < 0 || dclose < dopen) {
+              console.error("::error::no inline script found in check.html");
+              process.exit(1);
+            }
+            new Function(d.slice(dopen + 8, dclose));
+
             const required = [
               [/window\.isSecureContext !== false/, "secure-context check"],
               [/MediaRecorder\.isTypeSupported/,    "codec feature detection"],
@@ -70,6 +80,7 @@ jobs:
         run: |
           mkdir -p _site
           cp index.html _site/
+          cp check.html _site/
 
       - uses: actions/upload-pages-artifact@v3
         with:
