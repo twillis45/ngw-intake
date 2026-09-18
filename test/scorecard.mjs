@@ -244,7 +244,7 @@ check('5.4', 'Disabled buttons 40% opacity + not-allowed cursor',
 
 const labels = await page.evaluate(() =>
   [...document.querySelectorAll('button')].map((b) => b.textContent.trim()));
-const VERB = /^(Record|Stop|Add|Text|Delete|Open|Send)\b/;
+const VERB = /^(Record|Stop|Add|Text|Delete|Open|Send|Save|Type|Hide)\b/;
 check('5.2', 'Button labels are verbs, not nouns', labels.every((l) => VERB.test(l)),
       labels.join(' | '));
 // UX_07: navigator.share is DEEP HANDOFF — the label must name the destination

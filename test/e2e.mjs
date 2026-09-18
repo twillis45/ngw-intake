@@ -68,8 +68,8 @@ console.log('\n=== at rest ===');
 ok((await page.locator('article.q').count()) === 13, '13 question cards');
 ok((await page.locator('#fig-answered').textContent()) === '0/13' &&
    (await page.locator('#fig-clips').textContent()) === '0', 'ledger reads zero');
-ok(/Nothing recorded on this page yet/.test(await page.locator('#tally').textContent()),
-   'and the line says what that means, not just the number');
+ok(/Nothing recorded or typed on this page yet/.test(await page.locator('#tally').textContent()),
+   'and the line says what that means, naming both ways to answer');
 ok(!(await page.locator('#sendall').isVisible()), 'Send all hidden');
 ok((await page.locator('article.q audio:visible').count()) === 0, 'no dead audio players');
 const nums = await page.locator('.qnum').allTextContents();
@@ -408,8 +408,12 @@ ok(await dupPage.evaluate(() => {
      const said = norm([...document.querySelectorAll('.clip .said')].map((e) => e.textContent).join(' '));
      return [...document.querySelectorAll('.syn-q li')].every((li) => said.includes(norm(li.textContent)));
    }), 'every line is verbatim from the transcript — nothing generated');
-ok((await dupPage.locator('#tx').count()) === 0 && (await dupPage.locator('textarea').count()) === 0,
-   'and he pasted nothing to get it');
+ok((await dupPage.locator('#tx').count()) === 0, 'the transcript paste box is still gone');
+const boxes = await dupPage.locator('textarea').all();
+const asks = await Promise.all(boxes.map((b) => b.getAttribute('placeholder')));
+ok(asks.every((a) => a && !/paste|transcript/i.test(a)),
+   'no box asks him to paste a transcript — typing is for answering, not transcribing');
+ok(boxes.length === 13, `every question offers typing as well as recording (${boxes.length})`);
 ok(/your own sentences/.test(await dupPage.locator('.syn-note').textContent()),
    'the page says plainly where the lines came from');
 await dup.close();
@@ -424,6 +428,167 @@ await dup.close();
 // file against an allowlist of BARE types, so a codecs parameter makes
 // canShare() answer false and every share silently becomes a download. This is
 // the shape of the failure reported from an iPad, a MacBook and a Samsung.
+// navigator.share is defined to be platform-dependent, so it cannot be the
+// only way out. Reported failing across an iPad, a MacBook and a Samsung. A
+// download has never varied between browsers, so everything can also leave as
+// one zip — and the archive has to be real, not bytes that merely look like one.
+// Not everyone wants to hear themselves talk. Typing has to be a real way to
+// answer — saved, counted, restored and delivered exactly like a recording.
+console.log('\n=== typing is a first-class answer ===');
+const typ = await browser.newContext({ permissions: ['microphone'],
+  viewport: { width: 390, height: 844 }, acceptDownloads: true });
+await typ.addInitScript(() => {
+  Object.defineProperty(navigator, 'share', { value: undefined, configurable: true });
+  Object.defineProperty(navigator, 'canShare', { value: undefined, configurable: true });
+});
+const tp = await typ.newPage();
+await tp.goto('http://localhost:8731/', { waitUntil: 'load' });
+const ANSWER = 'The facility manager signs off, and it comes down to staffing on the day.';
+ok(await tp.locator('#text-q1').isHidden(), 'the typing box stays out of the way until asked for');
+await tp.locator('article.q').first().locator('button.typebtn').click();
+ok(await tp.locator('#text-q1').isVisible(), 'tapping Type it instead opens a box');
+ok((await tp.locator('label[for="text-q1"]').count()) === 1, 'the box has a real label above it');
+ok(await tp.locator('#text-q1').evaluate((e) => {
+     const bg = getComputedStyle(e).backgroundColor;
+     return bg !== 'rgb(255, 255, 255)' && bg !== 'rgba(0, 0, 0, 0)';
+   }), 'and it is a dark recessed field, not a white box');
+await tp.locator('#text-q1').fill(ANSWER);
+await tp.waitForTimeout(900);
+ok(/Saved on this device/.test(await tp.locator('article.q').first().locator('.state').textContent()),
+   'it saves as he types, with no Save button to forget');
+ok((await tp.locator('#fig-answered').textContent()) === '1/13',
+   'a typed answer counts as answered');
+ok(/typed answer/.test(await tp.locator('#tally').textContent()),
+   'and the tally says so in words');
+
+await tp.reload({ waitUntil: 'load' });
+await tp.waitForTimeout(1300);
+ok((await tp.locator('#text-q1').inputValue()) === ANSWER, 'it survives closing the page');
+ok(await tp.locator('#text-q1').isVisible(), 'and the box is open again so he can see it');
+ok(!(await tp.locator('#restorefail').isVisible()),
+   'a typed answer is never mistaken for a broken recording');
+
+const syn = await tp.locator('.syn-q li').allTextContents();
+ok(syn.length > 0 && syn.some((l) => ANSWER.indexOf(l.trim()) > -1 || l.trim() === ANSWER),
+   'the synopsis reads typed answers too, still verbatim');
+
+ok(await tp.locator('#downloadall').isVisible(), 'a typed-only page still has a way to send');
+const [tzip] = await Promise.all([tp.waitForEvent('download'), tp.locator('#downloadall').click()]);
+const tzPath = path.join(os.tmpdir(), 'ngw-typed.zip');
+await tzip.saveAs(tzPath);
+const tb = fs.readFileSync(tzPath);
+const te = tb.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
+const tcount = tb.readUInt16LE(te + 10);
+ok(tcount === 1, `the bundle carries the typed answer (${tcount} entry)`);
+ok(tb.includes(Buffer.from(ANSWER, 'utf8')), 'and his actual words are inside it');
+ok(tb.includes(Buffer.from('cory-q1-typed.txt', 'utf8')),
+   'named so it is obvious which question it answers');
+
+// Emptying the box must clear the answer, not leave a ghost counted forever.
+await tp.locator('#text-q1').fill('');
+await tp.waitForTimeout(900);
+ok((await tp.locator('#fig-answered').textContent()) === '0/13',
+   'clearing the box un-answers the question');
+await typ.close();
+
+console.log('\n=== there is a route out of every browser ===');
+const noshare = await browser.newContext({ permissions: ['microphone'],
+  viewport: { width: 390, height: 844 }, acceptDownloads: true });
+await noshare.addInitScript(() => {
+  Object.defineProperty(navigator, 'share', { value: undefined, configurable: true });
+  Object.defineProperty(navigator, 'canShare', { value: undefined, configurable: true });
+  // Dictation has to work for the archive to carry transcripts as well as
+  // audio, and Chromium's own recogniser cannot reach its service here.
+  function F() { this._t = null; }
+  F.prototype.start = function () {
+    this._t = setTimeout(() => {
+      this.onresult && this.onresult({ resultIndex: 0, results: [
+        { 0: { transcript: 'The facility manager signs off on it.' }, isFinal: true, length: 1 }] });
+    }, 300);
+  };
+  F.prototype.stop = function () { clearTimeout(this._t); this.onend && this.onend(); };
+  window.SpeechRecognition = F; window.webkitSpeechRecognition = F;
+});
+const np2 = await noshare.newPage();
+await np2.goto('http://localhost:8731/', { waitUntil: 'load' });
+for (const q of ['q1', 'q4']) {
+  await np2.locator('#mic-' + q).click();
+  await np2.waitForTimeout(1100);
+  await np2.locator('#mic-' + q).click();
+  await np2.waitForTimeout(800);
+}
+ok(!(await np2.locator('#sendall').isVisible()),
+   'no share button is offered where the browser cannot share files');
+const dlBtn = np2.locator('#downloadall');
+ok(await dlBtn.isVisible(), 'the one-file route is offered instead');
+ok(/Save all 2 as one file/.test(await dlBtn.textContent()),
+   'and it counts what it will pack');
+ok(await dlBtn.evaluate((e) => e.className === 'send'),
+   'where it is the only route, it carries the accent as the primary action');
+const [zip] = await Promise.all([np2.waitForEvent('download'), dlBtn.click()]);
+const zipPath = path.join(os.tmpdir(), 'ngw-e2e-answers.zip');
+await zip.saveAs(zipPath);
+ok(zip.suggestedFilename() === 'cory-outreach-answers.zip',
+   `the file is named for what it is (${zip.suggestedFilename()})`);
+
+// Parse it here rather than trusting the writer that produced it.
+const zb = fs.readFileSync(zipPath);
+const eocd = zb.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
+ok(eocd > 0, 'the file ends with a real end-of-central-directory record');
+const count = zb.readUInt16LE(eocd + 10);
+const cdOff = zb.readUInt32LE(eocd + 16);
+ok(count === 4, `it holds two recordings and their two transcripts (${count} entries)`);
+const zipNames = [];
+let o = cdOff;
+for (let i = 0; i < count; i++) {
+  ok(zb.readUInt32LE(o) === 0x02014b50, 'central directory entry ' + i + ' is well formed');
+  const nlen = zb.readUInt16LE(o + 28);
+  zipNames.push(zb.toString('utf8', o + 46, o + 46 + nlen));
+  o += 46 + nlen + zb.readUInt16LE(o + 30) + zb.readUInt16LE(o + 32);
+}
+ok(zipNames.filter((n) => n.endsWith('.m4a') || n.endsWith('.webm')).length === 2 &&
+   zipNames.filter((n) => n.endsWith('.txt')).length === 2,
+   `audio and transcripts both travel (${zipNames.join(', ')})`);
+// Every stored entry's CRC must match its bytes, or the archive opens empty.
+let crcOk = true;
+o = cdOff;
+const table = (() => { const t = new Int32Array(256);
+  for (let n = 0; n < 256; n++) { let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c; }
+  return t; })();
+const crc32 = (buf) => { let c = -1;
+  for (let i = 0; i < buf.length; i++) c = (c >>> 8) ^ table[(c ^ buf[i]) & 0xff];
+  return (c ^ -1) >>> 0; };
+for (let i = 0; i < count; i++) {
+  const want = zb.readUInt32LE(o + 16), size = zb.readUInt32LE(o + 24);
+  const lo = zb.readUInt32LE(o + 42);
+  const dataAt = lo + 30 + zb.readUInt16LE(lo + 26) + zb.readUInt16LE(lo + 28);
+  if (crc32(zb.subarray(dataAt, dataAt + size)) !== want) crcOk = false;
+  o += 46 + zb.readUInt16LE(o + 28) + zb.readUInt16LE(o + 30) + zb.readUInt16LE(o + 32);
+}
+ok(crcOk, 'every entry\'s checksum matches its bytes — the archive really opens');
+ok(/Saved one file/.test(await np2.locator('#sendall-err').textContent()),
+   'and he is told where it went and that nothing left the device');
+await noshare.close();
+
+// Where sharing does work, the share sheet leads and the zip is the fallback.
+const yesshare = await browser.newContext({ permissions: ['microphone'],
+  viewport: { width: 390, height: 844 } });
+await yesshare.addInitScript(() => {
+  Object.defineProperty(navigator, 'canShare', { value: () => true, configurable: true });
+  Object.defineProperty(navigator, 'share', { value: () => Promise.resolve(), configurable: true });
+});
+const yp = await yesshare.newPage();
+await yp.goto('http://localhost:8731/', { waitUntil: 'load' });
+await yp.locator('#mic-q1').click();
+await yp.waitForTimeout(1100);
+await yp.locator('#mic-q1').click();
+await yp.waitForTimeout(800);
+ok(await yp.locator('#sendall').isVisible(), 'the share route leads where it exists');
+ok(await yp.locator('#downloadall').evaluate((e) => e.className === 'second'),
+   'and the one-file route steps back to secondary');
+await yesshare.close();
+
 console.log('\n=== the shared file carries a bare media type ===');
 const mime = await browser.newContext({ permissions: ['microphone'],
   viewport: { width: 390, height: 844 } });
