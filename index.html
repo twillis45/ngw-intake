@@ -926,16 +926,28 @@
     var t = textFor(id, rec);
     var bundle = t ? [f, t] : [f];
     if (f && navigator.canShare && navigator.canShare({ files: bundle }) && navigator.share) {
+      // A tap must always do something visible. Without this the button looks
+      // dead for however long the sheet takes to appear.
+      say(c, "Opening your share sheet\u2026", "note");
       navigator.share({ files: bundle, title: c.q.ask })
         .then(function () {
           markSent(rec, "shared");
           say(c, "Handed to your share sheet \u2014 check the message actually went.", "note");
         })
         .catch(function (e) {
-          // AbortError is him closing the sheet. Anything else genuinely failed
-          // and must not pass silently.
-          if (e && e.name === "AbortError") return;
-          say(c, "That didn\u2019t send \u2014 try again, or save it and attach it to a text.");
+          // Reported as "nothing happens" on three devices. AbortError was
+          // being swallowed with a bare return, so a dismissed or refused
+          // sheet left the page silent and the button looked broken. Closing
+          // the sheet is a normal thing to do and deserves a sentence.
+          var name = (e && e.name) || "";
+          if (name === "AbortError" || name === "NotAllowedError") {
+            say(c, "The share sheet closed without sending. Tap again when you\u2019re " +
+                   "ready, or text the file to me from your Files app.", "note");
+          } else {
+            say(c, "Your browser wouldn\u2019t open a share sheet" +
+                   (name ? " (" + name + ")" : "") + ". Use the phone number at the " +
+                   "bottom of this page and send it from Messages instead.");
+          }
         });
       return;
     }
@@ -982,6 +994,9 @@
     } catch (e) { files = []; }
 
     if (files.length && navigator.canShare && navigator.canShare({ files: files }) && navigator.share) {
+      errEl.className = "note";
+      errEl.textContent = "Opening your share sheet\u2026";
+      errEl.hidden = false;
       navigator.share({ files: files, title: "Outreach answers" })
         .then(function () {
           // One resolve cannot vouch for thirteen files individually, so the
@@ -992,10 +1007,18 @@
           errEl.hidden = false;
         })
         .catch(function (e) {
-          if (e && e.name === "AbortError") return;
-          errEl.className = "err";
-          errEl.textContent = "That didn\u2019t send \u2014 use Text it to Todd on each recording instead.";
+          var name = (e && e.name) || "";
           errEl.hidden = false;
+          if (name === "AbortError" || name === "NotAllowedError") {
+            errEl.className = "note";
+            errEl.textContent = "The share sheet closed without sending. Nothing was lost \u2014 " +
+              "tap again when you\u2019re ready.";
+          } else {
+            errEl.className = "err";
+            errEl.textContent = "Your browser wouldn\u2019t open a share sheet" +
+              (name ? " (" + name + ")" : "") + ". Send them from Messages using the " +
+              "number at the bottom of this page.";
+          }
         });
       return;
     }

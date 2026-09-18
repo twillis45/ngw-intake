@@ -154,15 +154,53 @@
     row(s4, "SpeechRecognition exists", yn(!!SR), cls(!!SR));
     if (!SR) { btn.disabled = false; return; }
 
+    // A bare "no answer" distinguishes nothing: a dead microphone, a silent
+    // room and an unreachable speech service all look identical. So measure
+    // the microphone separately, and report WHICH recogniser events fired —
+    // soundstart/speechstart mean audio reached it and the service is the
+    // problem; their absence means nothing ever got that far.
+    function micLevel(done) {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) { row(s4, "Microphone level", "cannot measure", "maybe", "No AudioContext."); return done(0); }
+      navigator.mediaDevices.getUserMedia({ audio: true }).then(function (st) {
+        var ctx = new AC(), src = ctx.createMediaStreamSource(st), an = ctx.createAnalyser();
+        an.fftSize = 512; src.connect(an);
+        if (ctx.state === "suspended" && ctx.resume) ctx.resume();
+        var buf = new Uint8Array(an.fftSize), peak = 0, t0 = Date.now();
+        (function loop() {
+          an.getByteTimeDomainData(buf);
+          for (var i = 0; i < buf.length; i++) {
+            var v = Math.abs((buf[i] - 128) / 128);
+            if (v > peak) peak = v;
+          }
+          if (Date.now() - t0 < 4000) return requestAnimationFrame(loop);
+          try { src.disconnect(); ctx.close(); } catch (e) {}
+          st.getTracks().forEach(function (t) { t.stop(); });
+          var live = peak > 0.03;
+          row(s4, "Microphone picked up sound", live ? "yes" : "NO", live ? "yes" : "no",
+              "peak level " + peak.toFixed(3) + (live ? "" :
+              " — nothing reached the browser. Check which input device is selected, " +
+              "and that this tab is not muted. Every result below is meaningless until " +
+              "this says yes."));
+          done(peak);
+        })();
+      }).catch(function (e) {
+        row(s4, "Microphone", "refused", "no", (e && e.name) + " — " + (e && e.message));
+        done(0);
+      });
+    }
+
     function tryDictation(label, withRecorder, done) {
       var settled = false, stream = null, recorder = null, rec = null, timer = null;
+      var fired = [];
       function finish(verdict, klass, detail) {
         if (settled) return; settled = true;
         clearTimeout(timer);
         try { if (rec) { rec.onend = null; rec.abort(); } } catch (e) {}
         try { if (recorder && recorder.state !== "inactive") recorder.stop(); } catch (e) {}
         try { if (stream) stream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {}
-        row(s4, label, verdict, klass, detail);
+        row(s4, label, verdict, klass,
+            (detail ? detail + "  " : "") + "events: " + (fired.join(", ") || "none"));
         done();
       }
       navigator.mediaDevices.getUserMedia({ audio: true }).then(function (st) {
@@ -171,42 +209,56 @@
           try { recorder = new MediaRecorder(st); recorder.start(); }
           catch (e) { return finish("recorder failed", "no", String(e)); }
         } else {
-          // Dictation alone must not be holding a recorder's stream.
           st.getTracks().forEach(function (t) { t.stop(); });
           stream = null;
         }
         try { rec = new SR(); } catch (e) { return finish("could not construct", "no", String(e)); }
         rec.continuous = true; rec.interimResults = true;
         rec.lang = navigator.language || "en-US";
+        ["audiostart", "soundstart", "speechstart", "speechend", "soundend", "audioend", "nomatch"]
+          .forEach(function (ev) {
+            rec.addEventListener(ev, function () { fired.push(ev); });
+          });
         rec.onerror = function (e) {
-          finish("error: " + (e && e.error ? e.error : "unknown"), "no",
-                 "This is the answer. 'audio-capture' means dictation could not get the " +
-                 "microphone; 'network' means it could not reach the speech service; " +
-                 "'not-allowed' means permission was refused.");
+          var kind = (e && e.error) || "unknown";
+          finish("error: " + kind, "no",
+            kind === "audio-capture" ? "Dictation could not get the microphone."
+            : kind === "network" ? "Dictation could not reach its speech service."
+            : kind === "no-speech" ? "It listened and heard no speech."
+            : kind === "not-allowed" ? "Permission was refused."
+            : "");
         };
         rec.onresult = function (e) {
           var t = "";
           for (var i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
-          finish("heard you", "yes", t ? 'transcript: "' + t + '"' : "(started, no words yet)");
+          finish("heard you", "yes", t ? 'transcript: "' + t + '"' : "(no words yet)");
         };
-        rec.onstart = function () { row(s4, label + " — started", "ok", "maybe", ""); };
         try { rec.start(); } catch (e) { return finish("start threw", "no", String(e)); }
         timer = setTimeout(function () {
-          finish("no answer in 6s", "maybe",
-                 "It started and neither heard you nor errored. Say something out loud " +
-                 "and run this again before drawing a conclusion.");
-        }, 6000);
+          var heardAudio = fired.indexOf("soundstart") > -1 || fired.indexOf("speechstart") > -1;
+          finish(heardAudio ? "audio reached it, no text came back" : "silent — nothing reached it",
+                 "maybe",
+                 heardAudio
+                   ? "The microphone fed it and the speech service returned nothing. In Chrome "
+                     + "that service is a Google endpoint; a network that blocks it looks exactly "
+                     + "like this."
+                   : "It started but never registered any sound at all.");
+        }, 12000);
       }).catch(function (e) {
         finish("microphone refused", "no", (e && e.name) + " — " + (e && e.message));
       });
     }
 
-    row(s4, "Speak now, out loud, for a few seconds", "", "maybe", "");
-    tryDictation("A. Dictation on its own", false, function () {
-      tryDictation("B. Dictation WHILE the recorder holds the mic", true, function () {
-        row(s4, "Done", "", "", "If A worked and B failed, dictation and recording " +
-            "cannot share the microphone on this device — which is the whole question.");
-        btn.disabled = false;
+    row(s4, "Keep talking out loud until this finishes (about 30 seconds)", "", "maybe", "");
+    micLevel(function () {
+      tryDictation("A. Dictation on its own", false, function () {
+        tryDictation("B. Dictation WHILE the recorder holds the mic", true, function () {
+          row(s4, "Read it like this", "", "",
+              "Microphone yes + A heard you + B error  =  they cannot share the mic.  " +
+              "A and B both silent  =  dictation is not reaching its speech service at all.  " +
+              "Microphone NO  =  fix the input device first; nothing else here means anything.");
+          btn.disabled = false;
+        });
       });
     });
   });
