@@ -207,7 +207,7 @@
 
   .time { font-size: 14px; font-variant-numeric: tabular-nums; color: var(--muted); }
   .time.live { color: var(--crit); }
-  /* Evidence about the recorder's own stream, not about dictation. */
+  /* Evidence about the recorder's own stream. */
   .level { flex: none; width: 48px; height: 4px; background: var(--border-strong);
            border-radius: 8px; overflow: hidden; }
   .level i { display: block; height: 100%; width: 0; background: var(--crit); }
@@ -226,25 +226,11 @@
   .clip audio { flex: 1 1 100%; width: 100%; min-width: 0; height: 32px; }
   audio { width: 100%; min-width: 0; }
 
-  .said { flex: 1 1 100%; font-size: 14px; color: var(--fg-2); line-height: 1.45;
-          border-left: 1px solid var(--border-strong); padding-left: 12px; }
-  .said.pending { color: var(--muted); font-style: italic; }
   .err  { font-size: 14px; color: var(--crit); flex: 1 1 100%; }
   .note { font-size: 14px; color: var(--fg-2); flex: 1 1 100%; }
-  /* A clip the phone could not write out says so, in the same voice. */
-  .nosaid { font-size: 14px; color: var(--muted); flex: 1 1 100%; }
-  .clip .typed { flex: 1 1 100%; }
 
   /* ── Action block ─────────────────────────────────────────────────── */
-  .syn-q + .syn-q { margin-top: 16px; }
-  .syn-ask { font-size: 14px; font-weight: 600; color: var(--fg); margin-bottom: 4px; }
-  .syn-q ul { list-style: none; margin: 0; padding: 0; }
-  .syn-q li { position: relative; padding-left: 16px; font-size: 14px; color: var(--fg-2);
-              margin-bottom: 4px; }
-  .syn-q li::before { content: ""; position: absolute; left: 0; top: .6em;
-                      width: 8px; height: 1px; background: var(--steel); }
-  .syn-note { font-size: 14px; color: var(--muted); margin: 16px 0 0;
-              padding-top: 12px; border-top: 1px solid var(--border); }
+
 
   .actions { margin-top: 24px; display: flex; flex-direction: column; gap: 8px; }
   .actions .send, .actions .second { width: 100%; }
@@ -352,15 +338,6 @@
     <div id="questions"></div>
 
     <div class="actions">
-      <section class="card synopsis" id="synopsis" hidden>
-        <details>
-        <summary><span class="label">What I heard back</span></summary>
-        <div id="synopsis-body"></div>
-        <p class="syn-note">These are your own sentences, straight from the recordings.
-          Nothing added or reworded; an odd line is the dictation, not me.</p>
-        </details>
-      </section>
-
       <button type="button" id="sendall" class="send" hidden>Text them to Todd</button>
       <button type="button" id="downloadall" class="second" hidden>Save them all as one file</button>
       <div class="err" id="sendall-err" hidden></div>
@@ -392,15 +369,10 @@
         twenty minutes. The best of it comes out mid-story. Tangents are the good
         part.</p>
       <ul class="fine">
-        <li>Transcript under the recording? Send that too.</li>
         <li>Short answer? <b>Record</b> on the question. Long one? Voice Memos:
           if your phone locks, a recording here stops and keeps what you had.</li>
         <li>Anything you record here stays in this browser on this phone until
           you send it.</li>
-        <li id="dictation-note" hidden>Your phone writes each one out as you talk
-          and sends the text with the audio. It’s the same dictation your keyboard
-          uses and goes wherever that goes. The recording itself goes only to
-          me.</li>
       </ul>
       </details>
   </section>
@@ -625,10 +597,8 @@
     level.hidden = true;
     var keepon = el("span", "keepon", "If your screen locks, this stops and keeps what you said so far.");
     keepon.hidden = true;
-    var live = el("div", "said pending", "");
-    live.hidden = true;
     row.appendChild(mic); row.appendChild(time); row.appendChild(level);
-    row.appendChild(keepon); row.appendChild(live);
+    row.appendChild(keepon);
     body.appendChild(row);
 
     var err = el("div", "err"); err.hidden = true;
@@ -657,7 +627,7 @@
 
     cards[q.id] = { q: q, card: card, det: det, qstate: qstate,
                     mic: mic, time: time, level: level,
-                    keepon: keepon, live: live, typeBtn: typeBtn, typed: typed,
+                    keepon: keepon, typeBtn: typeBtn, typed: typed,
                     ta: ta, state: state,
                     clipsEl: clips, err: err, clips: [], seq: 0 };
 
@@ -809,63 +779,6 @@
       quiet.style.color = "var(--crit)";
       rowEl.appendChild(quiet);
     }
-    // What the phone heard is his to check. The row shows it; a tap opens a
-    // box holding the same words to fix, or to type what he said when the
-    // phone wrote nothing. Saved as he types, into the clip itself, so the
-    // correction travels with the recording and the file says it was checked.
-    var said = el("div", "said");
-    said.textContent = clip.said || "";
-    said.hidden = !clip.said;
-    rowEl.appendChild(said);
-    rec.saidEl = said;
-    var nosaid = el("div", "nosaid", "No transcript on this one. The recording is the record.");
-    nosaid.hidden = !!clip.said || !!clip.silent;
-    rowEl.appendChild(nosaid);
-    var fixBtn = el("button", "fixbtn", clip.said ? "Type a correction" : "Type what you said");
-    fixBtn.type = "button";
-    var fix = el("div", "typed fix");
-    fix.hidden = true;
-    var fixId = "fix-" + k.replace("::", "-");
-    var flab = document.createElement("label");
-    flab.setAttribute("for", fixId);
-    flab.textContent = "The words, as you would have them read";
-    var fta = document.createElement("textarea");
-    fta.id = fixId;
-    fta.rows = 3;
-    fta.placeholder = "Fix a word, or write the whole thing.";
-    var fstate = el("span", "state", "");
-    fstate.hidden = true;
-    fix.appendChild(flab); fix.appendChild(fta); fix.appendChild(fstate);
-    rowEl.appendChild(fixBtn); rowEl.appendChild(fix);
-    fixBtn.addEventListener("click", function () {
-      fix.hidden = !fix.hidden;
-      if (!fix.hidden) { fta.value = rec.clip.said || ""; fta.focus(); }
-      fixBtn.textContent = !fix.hidden ? "Hide the box"
-                         : rec.clip.said ? "Type a correction" : "Type what you said";
-    });
-    var fixPending = null;
-    fta.addEventListener("input", function () {
-      clearTimeout(fixPending);
-      fstate.hidden = false;
-      fstate.textContent = "Saving\u2026";
-      fstate.style.color = "var(--muted)";
-      fixPending = setTimeout(function () {
-        var v = fta.value.replace(/\s+/g, " ").trim();
-        rec.clip.said = v;
-        rec.clip.checked = !!v;
-        said.textContent = v;
-        said.hidden = !v;
-        nosaid.hidden = !!v || !!rec.clip.silent;
-        put(rec.key, rec.clip).then(function () {
-          fstate.textContent = "Saved on this device";
-          fstate.style.color = "";
-        }).catch(function () {
-          fstate.textContent = "Not saved \u2014 copy this somewhere before you close the page";
-          fstate.style.color = "var(--crit)";
-        });
-        tally();
-      }, 400);
-    });
     c.clipsEl.appendChild(rowEl);
     rec.el = rowEl; rec.flag = flag; rec.delBtn = del;
 
@@ -936,88 +849,8 @@
     tally();
   }
 
-  // ---- dictation ---------------------------------------------------------
-  // The phone writes it out while he talks, so the text rides along with the
-  // audio and he never copies or pastes anything. Entirely optional: where it
-  // is missing or fails, the recording is unaffected and nothing is said.
-  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  var canDictate = !!SR && canRecord;
-  if (canDictate) document.getElementById("dictation-note").hidden = false;
-
-  function startDictation(onText) {
-    if (!canDictate) return null;
-    var r;
-    try { r = new SR(); } catch (e) { return null; }
-    r.continuous = true;
-    r.interimResults = true;
-    r.lang = navigator.language || "en-US";
-    // ev.results is CUMULATIVE for the current recognizer session, and
-    // resultIndex only points at the first entry that changed. Appending the
-    // slice from resultIndex onto a running string re-adds every final the
-    // event still carries, so one sentence lands three, six, twelve times —
-    // which is what he would have read back on his own phone. The current
-    // session is therefore rebuilt from ev.results each time, never appended.
-    //
-    // A session still has to be folded away on end, because the page restarts
-    // recognition through pauses and a restart resets ev.results to empty.
-    var committed = "", session = "";
-    // Restart discipline. onend fires after every error too, so restarting
-    // from it unconditionally spins start -> error -> end as fast as the
-    // browser allows: measured at ~470 cycles a second for the length of the
-    // recording when the recognizer cannot get the microphone. That is battery
-    // and CPU burned at the exact moment he is talking.
-    var fails = 0, lastStart = 0, retry = null;
-    function fold() { committed += session; session = ""; }
-    var tidy = function (t) { return t.replace(/\s+/g, " ").trim(); };
-    r.onresult = function (ev) {
-      var fin = "", interim = "";
-      for (var i = 0; i < ev.results.length; i++) {
-        var chunk = ev.results[i][0].transcript;
-        if (ev.results[i].isFinal) fin += chunk; else interim += chunk;
-      }
-      session = fin;
-      fails = 0;                   // it is working; forget earlier stumbles
-      onText(tidy(committed + session + interim), tidy(committed + session));
-    };
-    r.onerror = function (e) {
-      var kind = (e && e.error) || "";
-      // Declining the microphone is a decision, not a glitch. Never re-ask.
-      if (kind === "not-allowed" || kind === "service-not-allowed") { r.__wanted = false; return; }
-      // "no-speech" is the service behaving correctly through a silence.
-      if (kind !== "no-speech") fails += 1;
-    };
-    // Recognition stops itself on a long pause; restart while the recording
-    // runs — but spaced out, and not forever. Dictation that has failed three
-    // times is not going to start working inside this one recording, and the
-    // recording itself is unaffected either way.
-    r.onend = function () {
-      fold();
-      if (!r.__wanted) return;
-      if (fails >= 3) { r.__wanted = false; return; }
-      var wait = Math.max(0, 500 - (Date.now() - lastStart));
-      retry = setTimeout(function () {
-        if (!r.__wanted) return;
-        lastStart = Date.now();
-        try { r.start(); } catch (e) {}
-      }, wait);
-    };
-    r.__wanted = true;
-    lastStart = Date.now();
-    try { r.start(); } catch (e) { return null; }
-    return {
-      stop: function () {
-        r.__wanted = false;
-        if (retry) { clearTimeout(retry); retry = null; }
-        try { r.stop(); } catch (e) {}
-        fold();                      // onend may not have landed yet
-        return tidy(committed);
-      }
-    };
-  }
-
   // ---- level meter --------------------------------------------------------
-  // Dictation text proves the phone heard something. It does not prove the
-  // MediaRecorder did. This reads the recorder's own stream, so what moves the
+  // This reads the recorder's own stream, so what moves the
   // bar is exactly what ends up in the file.
   var AC = window.AudioContext || window.webkitAudioContext;
   function startMeter(stream, onLevel) {
@@ -1110,7 +943,7 @@
       }
 
       var chunks = [], t0 = Date.now(), tick = null, done = false;
-      var heard = "", dict = null, meter = null;
+      var meter = null;
       // A microphone that delivers silence is the worst failure this page has:
       // the card looks answered, the clip has a duration, and there is nothing
       // in it. Seen on a MacBook where the browser had permission and an open
@@ -1137,9 +970,6 @@
         if (meter) { meter.stop(); meter = null; }
         c.level.hidden = true;
         bar.style.width = "0";
-        c.live.hidden = true;
-        c.live.textContent = "";
-        if (dict) { heard = dict.stop() || heard; dict = null; }
         stream.getTracks().forEach(function (t) { t.stop(); }); // release the mic
         if (current === mine) current = null;
         setBusy(id, false);
@@ -1169,7 +999,7 @@
           say(c, "Nothing recorded \u2014 try again. If it happens twice, use your phone\u2019s voice memo app.");
           return;
         }
-        var clip = { blob: blob, type: type, ms: ms, said: heard,
+        var clip = { blob: blob, type: type, ms: ms,
                      silent: meterRan && !sawSound && ms > 1500, peak: peak };
         var added = addClip(id, clip);
         if (clip.silent) {
@@ -1190,13 +1020,6 @@
         return;
       }
 
-      dict = startDictation(function (live) {
-        heard = live;
-        // Shown as he speaks. Seeing his own words appear is the only proof
-        // available on the phone that this is recording and not just counting.
-        c.live.textContent = live;
-        c.live.hidden = !live;
-      });
       meter = startMeter(stream, function (lvl) {
         bar.style.width = Math.round(lvl * 100) + "%";
         if (Date.now() - t0 < 300) return;        // ignore the stream-open pop
@@ -1348,7 +1171,7 @@
     Object.keys(cards).forEach(function (id) {
       var t = typedText(id);
       if (!t) return;
-      var body = transcriptBody(id, t, "typed");
+      var body = typedBody(id, t);
       out.push({ name: "cory-" + id + "-typed.txt", bytes: enc.encode(body) });
     });
     return out;
@@ -1412,12 +1235,6 @@
       return bytesOf(it.rec.clip.blob).then(function (bytes) {
         var base = baseName(it.id, it.rec);
         var out = [{ name: base + "." + extFor(bareType(it.rec.clip.type)), bytes: bytes }];
-        if (it.rec.clip.said) {
-          var body = transcriptBody(it.id, it.rec.clip.said, it.rec.clip.checked ? "checked" : "said");
-          out.push({ name: base + ".txt",
-                     bytes: (window.TextEncoder ? new TextEncoder().encode(body)
-                                                : new Uint8Array(0)) });
-        }
         return out;
       });
     });
@@ -1445,16 +1262,11 @@
   function baseName(id, rec) {
     return "cory-" + id + "-part" + (cards[id].clips.indexOf(rec) + 1);
   }
-  // Every transcript file says which question, how the words got there, and
-  // what they are worth: dictation is a draft, the recording is the record.
-  function transcriptBody(id, text, how) {
+  // A typed answer's file says which question it answers and that it was typed.
+  function typedBody(id, text) {
     var ids = Object.keys(cards), i = ids.indexOf(id) + 1;
     var ask = cards[id].q.ask.replace(/<[^>]+>/g, "");
-    return (i < 10 ? "0" : "") + i + " \u00b7 " + ask + "\n" +
-      (how === "typed" ? "Typed on the phone."
-       : how === "checked" ? "Dictated on the phone, then read and corrected by him."
-       : "Dictated on the phone as he spoke, unchecked. The recording is the record.") +
-      "\n\n" + text + "\n";
+    return (i < 10 ? "0" : "") + i + " \u00b7 " + ask + "\nTyped on the phone.\n\n" + text + "\n";
   }
   function fileFor(id, rec) {
     var type = bareType(rec.clip.type) || "audio/mp4";
@@ -1462,21 +1274,11 @@
     try { return new File([rec.clip.blob], name, { type: type }); }
     catch (e) { return null; }
   }
-  // The transcript travels as its own text file beside the audio — no copying,
-  // no pasting, and it survives being forwarded.
-  function textFor(id, rec) {
-    if (!rec.clip.said) return null;
-    var body = transcriptBody(id, rec.clip.said, rec.clip.checked ? "checked" : "said");
-    try { return new File([body], baseName(id, rec) + ".txt", { type: "text/plain" }); }
-    catch (e) { return null; }
-  }
-
   function share(id, rec) {
     var c = cards[id];
     say(c, "");
     var f = fileFor(id, rec);
-    var t = textFor(id, rec);
-    var bundle = t ? [f, t] : [f];
+    var bundle = [f];
     if (f && navigator.canShare && navigator.canShare({ files: bundle }) && navigator.share) {
       // A tap must always do something visible. Without this the button looks
       // dead for however long the sheet takes to appear.
@@ -1541,7 +1343,6 @@
     try {
       items.forEach(function (it) {
         var a = fileFor(it.id, it.rec); if (a) files.push(a);
-        var b = textFor(it.id, it.rec); if (b) files.push(b);
       });
       typedFiles().forEach(function (t) {
         try { files.push(new File([t.bytes], t.name, { type: "text/plain" })); } catch (e) {}
@@ -1597,64 +1398,6 @@
     } catch (e) { return false; }
   })();
 
-  // ---- synopsis -----------------------------------------------------------
-  // Extractive, never generative. It selects whole sentences he actually said
-  // and prints them verbatim. There is no model here and no paraphrase, so
-  // there is nothing that can invent a fact about the FAA — which is the only
-  // kind of summary worth putting in front of the person who said it.
-  var CUES = /\b(because|has to|have to|had to|always|never|usually|depends|comes down to|the problem|unless|can\u2019t|can't|cannot|won\u2019t|won't|need to|needs to|ends up|every time|sometimes|no matter|supposed to|required|ends up being)\b/gi;
-
-  function sentencesOf(t) {
-    var m = String(t).replace(/\s+/g, " ").match(/[^.!?]+[.!?]*/g) || [];
-    return m.map(function (x) { return x.trim(); })
-            .filter(function (x) { return x.split(" ").length >= 6; });
-  }
-  function pickLines(t, n) {
-    var ss = sentencesOf(t);
-    if (!ss.length) {
-      var whole = String(t).replace(/\s+/g, " ").trim();
-      return whole ? [whole] : [];
-    }
-    var scored = ss.map(function (x, i) {
-      var cues = (x.match(CUES) || []).length;
-      var w = x.split(" ").length;
-      return { s: x, i: i, score: cues * 2 + (w >= 10 && w <= 40 ? 1 : 0) + (/\d/.test(x) ? 1 : 0) };
-    });
-    scored.sort(function (a, b) { return b.score - a.score || a.i - b.i; });
-    return scored.slice(0, n)
-                 .sort(function (a, b) { return a.i - b.i; })
-                 .map(function (x) { return x.s; });
-  }
-
-  function synopsis() {
-    var box = document.getElementById("synopsis");
-    var host = document.getElementById("synopsis-body");
-    while (host.firstChild) host.removeChild(host.firstChild);
-    var any = false;
-    Object.keys(cards).forEach(function (id) {
-      var c = cards[id];
-      var said = c.clips.map(function (r) { return r.clip.said || ""; }).join(" ");
-      said = (said + " " + typedText(id)).trim();
-      if (!said) return;
-      var lines = pickLines(said, 2);
-      if (!lines.length) return;
-      any = true;
-      var blk = el("div", "syn-q");
-      var ask = el("div", "syn-ask");
-      ask.textContent = c.q.ask;              // textContent: his words are data
-      blk.appendChild(ask);
-      var ul = document.createElement("ul");
-      lines.forEach(function (ln) {
-        var li = document.createElement("li");
-        li.textContent = ln;
-        ul.appendChild(li);
-      });
-      blk.appendChild(ul);
-      host.appendChild(blk);
-    });
-    box.hidden = !any;
-  }
-
   // ---- tally --------------------------------------------------------------
   function tally() {
     var ids = Object.keys(cards);
@@ -1686,7 +1429,6 @@
       : total === 0 ? "Nothing recorded or typed on this page yet."
       : pending === 0 ? "Everything recorded here has been handed off."
       : pending + (pending === 1 ? " recording" : " recordings") + " still to send.";
-    synopsis();
     var sa = document.getElementById("sendall");
     var dl = document.getElementById("downloadall");
     var any = total > 0 || typedCount > 0;

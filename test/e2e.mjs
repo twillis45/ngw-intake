@@ -195,7 +195,7 @@ ok(await page.locator('#mic-q4').isDisabled(), 'other questions disabled while o
 ok(await card(0).locator('.keepon').isVisible(), 'screen-lock line shows where it applies');
 ok(/stops and keeps what you said/.test(await card(0).locator('.keepon').textContent()),
    'it describes what the page does, not only what could go wrong');
-// Live evidence about the recorder's own stream, not about dictation.
+// Live evidence about the recorder's own stream.
 ok(await card(0).locator('.level').isVisible(), 'the level meter is up while recording');
 ok(await card(0).locator('.level i').evaluate((e) => parseFloat(e.style.width) > 0),
    'the meter actually moves on the fake device');
@@ -205,11 +205,7 @@ await page.waitForTimeout(900);
 ok(!(await page.locator('#mic-q4').isDisabled()), 'others re-enabled after stop');
 ok(await card(0).locator('.keepon').isHidden(), 'line hidden again');
 ok(await card(0).locator('.level').isHidden(), 'meter torn down with the recorder');
-ok(await card(0).locator('.said.pending').isHidden(), 'live transcript cleared on stop');
 ok((await card(0).locator('.clip').count()) === 1, 'one clip filed');
-ok(await card(0).locator('.clip').first().locator('.nosaid').isVisible() &&
-   /Type what you said/.test(await card(0).locator('.clip').first().locator('button.fixbtn').textContent()),
-   'a clip the phone could not write out says so and offers typing');
 
 // The race the old build lost an answer to: start a second question while the
 // first is still live. The first must file, the second must be fully operable.
@@ -330,7 +326,7 @@ await page.evaluate(() => new Promise((res, rej) => {
   const r = indexedDB.open('ngw-voice-brief', 1);
   r.onsuccess = () => {
     const tx = r.result.transaction('clips', 'readwrite');
-    tx.objectStore('clips').put({ ms: 1000, said: '' }, 'q9::1');   // no blob
+    tx.objectStore('clips').put({ ms: 1000 }, 'q9::1');   // no blob
     tx.oncomplete = res; tx.onerror = () => rej(tx.error);
   };
   r.onerror = () => rej(r.error);
@@ -355,175 +351,15 @@ await page.reload({ waitUntil: 'load' });
 await page.waitForTimeout(1300);
 ok(!(await page.locator('#restorefail').isVisible()), 'banner gone once the store reads clean');
 
-console.log('\n=== dictation degrades silently ===');
-// Chromium here has no working speech service, so this proves the path nobody
-// should ever notice: no transcript, no error, recording unaffected.
-const dict = await page.evaluate(() => ({
-  api: !!(window.SpeechRecognition || window.webkitSpeechRecognition),
-  noteShown: !document.getElementById('dictation-note').hidden,
-}));
-ok(dict.noteShown === dict.api,
-   `the dictation note appears only where dictation exists (api=${dict.api})`);
-// The API exists in this browser but its service never answers, so this is the
-// silent-failure path: no text, and therefore no empty transcript block either.
-ok((await page.locator('.said:visible').count()) === 0,
-   'a transcript block never shows with nothing in it');
-ok((await card(0).locator('.clip').count()) > 0, 'recordings still file with dictation absent');
-
-// With a service that does answer, the words have to reach the screen while he
-// talks, and ride along with the audio afterwards. Stub the API, not our code.
-console.log('\n=== the transcript is shown as he speaks ===');
-const heard = await browser.newContext({ permissions: ['microphone'],
-  viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
-await heard.addInitScript(() => {
-  const SAID = 'the facility manager signs off on it';
-  function Fake() { this.continuous = false; this.interimResults = false; this.lang = 'en-US'; }
-  Fake.prototype.start = function () {
-    this._t = setTimeout(() => {
-      if (!this.onresult) return;
-      this.onresult({ resultIndex: 0, results: [{ 0: { transcript: SAID }, isFinal: true, length: 1 }] });
-    }, 300);
-  };
-  Fake.prototype.stop = function () {
-    clearTimeout(this._t);
-    if (this.onend) this.onend();
-  };
-  window.SpeechRecognition = Fake;
-  window.webkitSpeechRecognition = Fake;
-});
-const hp = await heard.newPage();
-await hp.goto('http://localhost:8731/', { waitUntil: 'load' });
-ok(!(await hp.locator('#dictation-note').isHidden()),
-   'he is told his phone is writing it out, and where that text goes');
-await tap(hp, 'q1');
-await hp.waitForTimeout(1400);
-const liveEl = hp.locator('article.q').first().locator('.said.pending');
-ok(await liveEl.isVisible(), 'the words appear while the recording is still running');
-ok(/facility manager signs off/.test(await liveEl.textContent()),
-   'and they are the words that were said');
-await tap(hp, 'q1');
-await hp.waitForTimeout(900);
-ok(await liveEl.isHidden(), 'the live block clears once the clip is filed');
-const filed = hp.locator('article.q').first().locator('.clip .said');
-ok((await filed.count()) === 1 && /facility manager signs off/.test(await filed.textContent()),
-   'the text is filed with its recording, with nothing copied or pasted');
-await heard.close();
-
-// Dictation hands back a CUMULATIVE result list per session, and resultIndex
-// only marks the first entry that changed. Appending the slice from
-// resultIndex re-added every final the event still carried, so one sentence
-// filed three, six, twelve times. A restart through a pause then has to keep
-// the earlier session's text without replaying it. Both halves are asserted.
-console.log('\n=== the transcript is not duplicated across pauses ===');
-const dup = await browser.newContext({ permissions: ['microphone'],
-  viewport: { width: 390, height: 844 } });
-await dup.addInitScript(() => {
-  const S = [{ at: 200, final: 'Alpha one. ' }, { at: 600, end: true },
-             { at: 1000, final: 'Bravo two. ' }, { at: 1400, final: 'Charlie three.' }];
-  function F() { this._t = []; this._f = []; this._cur = 0; }
-  F.prototype.start = function () {
-    this._f = [];                                  // a session starts empty, per spec
-    const base = this._cur;
-    S.forEach((step, i) => {
-      if (i < base) return;
-      this._t.push(setTimeout(() => {
-        this._cur = i + 1;
-        if (step.end) { this._t.forEach(clearTimeout); this._t = []; this.onend && this.onend(); return; }
-        this._f.push(step.final);
-        this.onresult && this.onresult({ resultIndex: 0,
-          results: this._f.map((t) => ({ 0: { transcript: t }, isFinal: true, length: 1 })) });
-      }, step.at));
-    });
-  };
-  F.prototype.stop = function () { this._t.forEach(clearTimeout); this.onend && this.onend(); };
-  window.SpeechRecognition = F; window.webkitSpeechRecognition = F;
-});
-const dupPage = await dup.newPage();
-await dupPage.goto('http://localhost:8731/', { waitUntil: 'load' });
-await tap(dupPage, 'q1');
-await dupPage.waitForTimeout(2000);
-await tap(dupPage, 'q1');
-await dupPage.waitForTimeout(1000);
-const filedText = (await dupPage.locator('.clip .said').first().textContent()).trim();
-ok(filedText === 'Alpha one. Bravo two. Charlie three.',
-   `each sentence lands exactly once ("${filedText}")`);
-ok((filedText.match(/Alpha/g) || []).length === 1, 'the pre-pause sentence is not repeated');
-ok(/Bravo two\. Charlie three\./.test(filedText), 'and the post-restart text is kept in order');
-
-console.log('\n=== the transcript is his to check ===');
-const clip0 = dupPage.locator('article.q').first().locator('.clip').first();
-ok(/Type a correction/.test(await clip0.locator('button.fixbtn').textContent()),
-   'a clip with words offers a correction');
-await clip0.locator('button.fixbtn').click();
-const fixBox = clip0.locator('textarea');
-ok((await fixBox.inputValue()) === filedText, 'the box opens holding what the phone wrote');
-await fixBox.fill('Alpha one. Bravo two. Charlie three. Delta four.');
-await dupPage.waitForTimeout(900);
-ok((await clip0.locator('.said').textContent()).trim() === 'Alpha one. Bravo two. Charlie three. Delta four.',
-   'the shown transcript follows his correction');
-ok(/Saved on this device/.test(await clip0.locator('.fix .state').textContent()),
-   'and it saves as he types');
-await dupPage.reload({ waitUntil: 'load' });
-await dupPage.waitForTimeout(1300);
-ok((await dupPage.locator('article.q').first().locator('.clip').first().locator('.said').textContent()).trim()
-     === 'Alpha one. Bravo two. Charlie three. Delta four.',
-   'the correction survives closing the page');
-ok((await dupPage.locator('.syn-q li').allTextContents()).some((l) => /Delta four/.test(l)) ||
-   (await dupPage.locator('.syn-q li').allTextContents()).length > 0,
-   'the synopsis reads the corrected words');
-
-// The synopsis exists so he can see he was heard, without copying anything.
-// It is extractive: every line must be a substring of what he actually said.
-console.log('\n=== the synopsis is his own words, never a paraphrase ===');
-ok(await dupPage.locator('#synopsis').isVisible(), 'a synopsis appears once a transcript exists');
-const synLines = await dupPage.locator('.syn-q li').allTextContents();
-ok(synLines.length > 0, `it has lines (${synLines.length})`);
-ok(await dupPage.evaluate(() => {
-     const norm = (x) => x.replace(/\s+/g, ' ').trim();
-     const said = norm([...document.querySelectorAll('.clip .said')].map((e) => e.textContent).join(' '));
-     return [...document.querySelectorAll('.syn-q li')].every((li) => said.includes(norm(li.textContent)));
-   }), 'every line is verbatim from the transcript — nothing generated');
-ok((await dupPage.locator('#tx').count()) === 0, 'the transcript paste box is still gone');
-// Answer boxes only: the correction box under a clip is a different thing.
-const boxes = await dupPage.locator('.qbody > .typed textarea').all();
-const asks = await Promise.all(boxes.map((b) => b.getAttribute('placeholder')));
-ok(asks.every((a) => a && !/paste|transcript/i.test(a)),
-   'no box asks him to paste a transcript — typing is for answering, not transcribing');
+console.log('\n=== typing is offered on every question ===');
+const boxes = await page.locator('.qbody > .typed textarea').all();
 ok(boxes.length === N, `every question offers typing as well as recording (${boxes.length})`);
 // The page must not tell him not to do the thing it offers.
-const h1 = await dupPage.locator('h1').textContent();
+const h1 = await page.locator('h1').textContent();
 ok(!/don\u2019t type|don't type/i.test(h1), `the title does not contradict the typing box (${h1})`);
-ok(/Type it instead/.test(await dupPage.locator('.how').textContent()),
+ok(/Type it instead/.test(await page.locator('.how').textContent()),
    'and the instructions mention typing as a real option');
-ok(/your own sentences/.test(await dupPage.locator('.syn-note').textContent()),
-   'the page says plainly where the lines came from');
-await dup.close();
 
-// Found by speaking real audio into the page: when the recogniser cannot get
-// the microphone it errors immediately, onend fires, and restarting from onend
-// unconditionally spins start -> error -> end as fast as the browser allows.
-// Measured at 6,555 cycles in one 14-second recording — battery and CPU burned
-// at the moment he is talking, for a feature that is optional anyway.
-// MediaRecorder reports the type it negotiated with its parameters attached —
-// "audio/mp4;codecs=opus" was observed in this very suite. Web Share matches a
-// file against an allowlist of BARE types, so a codecs parameter makes
-// canShare() answer false and every share silently becomes a download. This is
-// the shape of the failure reported from an iPad, a MacBook and a Samsung.
-// navigator.share is defined to be platform-dependent, so it cannot be the
-// only way out. Reported failing across an iPad, a MacBook and a Samsung. A
-// download has never varied between browsers, so everything can also leave as
-// one zip — and the archive has to be real, not bytes that merely look like one.
-// Not everyone wants to hear themselves talk. Typing has to be a real way to
-// answer — saved, counted, restored and delivered exactly like a recording.
-// Twenty minutes of answers has to be sendable. The browser default measured
-// 129 kbps — 0.92 MB a minute, 18 MB for twenty — which no text message will
-// carry and email barely will. One voice does not need that.
-// Found on a real MacBook: Safari had permission and an open audio stream that
-// carried NO SOUND. Two independent systems agreed — an AnalyserNode saw a flat
-// signal and Safari's own recogniser fired audiostart but never soundstart. The
-// page filed that as a perfectly good answer: a card that looks done, a clip
-// with a duration, and nothing inside it. That is the worst failure here,
-// because he only finds out after twenty minutes of talking.
 console.log('\n=== a silent microphone is called out, not filed as an answer ===');
 const deaf = await chromium.launch({
   executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
@@ -670,10 +506,6 @@ ok(await tp.locator('#text-q1').isVisible(), 'opening it shows the box with his 
 ok(!(await tp.locator('#restorefail').isVisible()),
    'a typed answer is never mistaken for a broken recording');
 
-const syn = await tp.locator('.syn-q li').allTextContents();
-ok(syn.length > 0 && syn.some((l) => ANSWER.indexOf(l.trim()) > -1 || l.trim() === ANSWER),
-   'the synopsis reads typed answers too, still verbatim');
-
 ok(await tp.locator('#downloadall').isVisible(), 'a typed-only page still has a way to send');
 const [tzip] = await Promise.all([tp.waitForEvent('download'), tp.locator('#downloadall').click()]);
 const tzPath = path.join(os.tmpdir(), 'ngw-typed.zip');
@@ -699,17 +531,6 @@ const noshare = await browser.newContext({ permissions: ['microphone'],
 await noshare.addInitScript(() => {
   Object.defineProperty(navigator, 'share', { value: undefined, configurable: true });
   Object.defineProperty(navigator, 'canShare', { value: undefined, configurable: true });
-  // Dictation has to work for the archive to carry transcripts as well as
-  // audio, and Chromium's own recogniser cannot reach its service here.
-  function F() { this._t = null; }
-  F.prototype.start = function () {
-    this._t = setTimeout(() => {
-      this.onresult && this.onresult({ resultIndex: 0, results: [
-        { 0: { transcript: 'The facility manager signs off on it.' }, isFinal: true, length: 1 }] });
-    }, 300);
-  };
-  F.prototype.stop = function () { clearTimeout(this._t); this.onend && this.onend(); };
-  window.SpeechRecognition = F; window.webkitSpeechRecognition = F;
 });
 const np2 = await noshare.newPage();
 await np2.goto('http://localhost:8731/', { waitUntil: 'load' });
@@ -739,7 +560,7 @@ const eocd = zb.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
 ok(eocd > 0, 'the file ends with a real end-of-central-directory record');
 const count = zb.readUInt16LE(eocd + 10);
 const cdOff = zb.readUInt32LE(eocd + 16);
-ok(count === 4, `it holds two recordings and their two transcripts (${count} entries)`);
+ok(count === 2, `it holds the two recordings (${count} entries)`);
 const zipNames = [];
 let o = cdOff;
 for (let i = 0; i < count; i++) {
@@ -749,8 +570,8 @@ for (let i = 0; i < count; i++) {
   o += 46 + nlen + zb.readUInt16LE(o + 30) + zb.readUInt16LE(o + 32);
 }
 ok(zipNames.filter((n) => n.endsWith('.m4a') || n.endsWith('.webm')).length === 2 &&
-   zipNames.filter((n) => n.endsWith('.txt')).length === 2,
-   `audio and transcripts both travel (${zipNames.join(', ')})`);
+   zipNames.filter((n) => n.endsWith('.txt')).length === 0,
+   `the audio travels and nothing else is invented beside it (${zipNames.join(', ')})`);
 // Every stored entry's CRC must match its bytes, or the archive opens empty.
 let crcOk = true;
 o = cdOff;
@@ -819,79 +640,6 @@ ok(types.every((t) => t.indexOf(';') === -1),
 ok(types.some((t) => /^audio\//.test(t)), 'the audio file is offered as an audio type');
 const names = await mp.evaluate(() => window.__names || []);
 await mime.close();
-
-console.log('\n=== a failing recogniser does not spin ===');
-const spin = await browser.newContext({ permissions: ['microphone'],
-  viewport: { width: 390, height: 844 } });
-await spin.addInitScript(() => {
-  window.__starts = 0;
-  function Broken() {}
-  Broken.prototype.start = function () {
-    window.__starts += 1;
-    setTimeout(() => {
-      this.onerror && this.onerror({ error: 'audio-capture' });
-      this.onend && this.onend();
-    }, 5);
-  };
-  Broken.prototype.stop = function () { this.onend && this.onend(); };
-  window.SpeechRecognition = Broken; window.webkitSpeechRecognition = Broken;
-});
-const sp = await spin.newPage();
-await sp.goto('http://localhost:8731/', { waitUntil: 'load' });
-await tap(sp, 'q1');
-await sp.waitForTimeout(4000);
-const starts = await sp.evaluate(() => window.__starts);
-ok(starts <= 5, `a recogniser that always fails is retried a few times, not thousands (${starts})`);
-await tap(sp, 'q1');
-await sp.waitForTimeout(900);
-ok((await sp.locator('article.q').first().locator('.clip').count()) === 1,
-   'and the recording it was riding alongside still files');
-
-await spin.close();
-
-// A declined microphone is a decision, not a glitch — never re-ask in a loop.
-// The page reads the constructor once at init, so this needs its own context
-// rather than a swap after load.
-const denied = await browser.newContext({ permissions: ['microphone'],
-  viewport: { width: 390, height: 844 } });
-await denied.addInitScript(() => {
-  window.__starts = 0;
-  function Denied() {}
-  Denied.prototype.start = function () {
-    window.__starts += 1;
-    setTimeout(() => {
-      this.onerror && this.onerror({ error: 'not-allowed' });
-      this.onend && this.onend();
-    }, 5);
-  };
-  Denied.prototype.stop = function () { this.onend && this.onend(); };
-  window.SpeechRecognition = Denied; window.webkitSpeechRecognition = Denied;
-});
-const dn = await denied.newPage();
-await dn.goto('http://localhost:8731/', { waitUntil: 'load' });
-await tap(dn, 'q1');
-await dn.waitForTimeout(2500);
-ok((await dn.evaluate(() => window.__starts)) === 1,
-   `a declined microphone is asked for exactly once (${await dn.evaluate(() => window.__starts)})`);
-await tap(dn, 'q1');
-await dn.waitForTimeout(900);
-ok((await dn.locator('article.q').first().locator('.clip').count()) === 1,
-   'and the recording is unaffected by the refusal');
-await denied.close();
-
-// No transcripts, no synopsis — an empty panel would be worse than none.
-const nosyn = await browser.newContext({ permissions: ['microphone'],
-  viewport: { width: 390, height: 844 } });
-const np = await nosyn.newPage();
-await np.goto('http://localhost:8731/', { waitUntil: 'load' });
-await np.waitForTimeout(400);
-ok(await np.locator('#synopsis').isHidden(), 'no synopsis panel before there is anything in it');
-await nosyn.close();
-
-ok((await page.locator('#tx').count()) === 0, 'the paste box is gone');
-ok((await page.locator('#checkbtn').count()) === 0, 'the summary button is gone');
-const pageText = await page.locator('body').innerText();
-ok(!/[Pp]aste a transcript/.test(pageText), 'nothing asks him to paste anything');
 
 console.log('\n=== layout ===');
 ok(!(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1)),
