@@ -76,8 +76,8 @@ ok(/Nothing recorded or typed on this page yet/.test(await page.locator('#tally'
 ok(!(await page.locator('#sendall').isVisible()), 'Send all hidden');
 ok((await page.locator('article.q audio:visible').count()) === 0, 'no dead audio players');
 const nums = await page.locator('.qnum').allTextContents();
-ok(nums.join(',') === Array.from({ length: N }, (_, i) => String(i + 1)).join(','),
-   `margin numbers run 1..${N} in order`);
+ok(nums.join(',') === Array.from({ length: N }, (_, i) => String(i + 1).padStart(2, '0')).join(','),
+   `margin numbers run 01..${N} in order`);
 
 console.log('\n=== copy ===');
 const how = await page.locator('.how').textContent();
@@ -872,7 +872,7 @@ const D = await wp.evaluate(() => {
 });
 ok(D.gutter <= 320, `no unbounded void beside the content (${Math.round(D.gutter)}px gutter)`);
 ok(D.cols >= 2, `the list gains lanes rather than padding (${D.cols} columns)`);
-ok(D.body === 13, `the type scale is fixed by role, not by viewport (${D.body}px)`);
+ok(D.body === 14, `the type scale is fixed by role, not by viewport (${D.body}px)`);
 await wp.screenshot({ path: '/tmp/intake-desktop.png' });
 await wide.close();
 

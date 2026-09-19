@@ -31,6 +31,9 @@
     --steel:#4E6877; --steel-text:#6F8794;
     --amber:#ECA13F; --crit:#F27A70; --safe:#4FAE7A;
     --fg:#eef0f4; --fg-2:#849eb8; --muted:#9a9ca0;
+    /* Ghost: display numerals and section names. 3.16:1 on the raised
+       surface, the AA floor for large text, and no higher on purpose. */
+    --ghost:#626a74;
     color-scheme: dark;
   }
 
@@ -42,7 +45,7 @@
        Tabular figures come from font-variant-numeric, which the system face
        supports without a second download. */
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    font-size: 14px; line-height: 1.45; font-weight: 400;
+    font-size: 16px; line-height: 1.45; font-weight: 400;
     padding-bottom: 56px;
     -webkit-tap-highlight-color: rgba(78,104,119,.2);
   }
@@ -55,16 +58,16 @@
 
   /* ── Zone 1: command header ───────────────────────────────────────── */
   .rail > * + * { margin-top: 12px; }
-  h1 { font-size: 22px; font-weight: 700; letter-spacing: -.3px; line-height: 1.2;
+  h1 { font-size: 24px; font-weight: 700; letter-spacing: -.3px; line-height: 1.2;
        margin: 0 0 4px; }
-  .sub { font-size: 13px; font-weight: 400; color: var(--muted); margin: 0; }
+  .sub { font-size: 14px; font-weight: 400; color: var(--muted); margin: 0; }
 
   /* Figures run as hairline rows, not tiles — UX_04's display-ask clause
      allows it, and four tiles for two real numbers would be inventory. */
   .ledger { display: flex; gap: 20px; border-top: 1px solid var(--border);
             border-bottom: 1px solid var(--border); padding: 8px 0; }
   .fig { display: flex; flex-direction: column; gap: 4px; }
-  .fig .n { font-size: 24px; font-weight: 700; letter-spacing: -.5px; line-height: 1;
+  .fig .n { font-size: 40px; font-weight: 700; letter-spacing: -1px; line-height: 1;
             font-variant-numeric: tabular-nums; }
   .label { font-size: 11px; font-weight: 600; letter-spacing: .5px;
            text-transform: uppercase; color: var(--fg-2); }
@@ -73,12 +76,12 @@
   .card { background: var(--card); border: 1px solid var(--border);
           border-radius: 8px; padding: 16px; }
 
-  .how p { margin: 0 0 8px; font-size: 13px; color: var(--fg-2); }
-  .how p.lead { font-size: 16px; font-weight: 600; color: var(--fg);
+  .how p { margin: 0 0 8px; font-size: 14px; color: var(--fg-2); }
+  .how p.lead { font-size: 18px; font-weight: 600; color: var(--fg);
                 letter-spacing: -.2px; margin-bottom: 12px; }
   .how ul { list-style: none; margin: 0 0 12px; padding: 0; }
   .how li { position: relative; padding-left: 16px; margin-bottom: 4px;
-            font-size: 13px; color: var(--fg-2); }
+            font-size: 14px; color: var(--fg-2); }
   .how li::before { content: ""; position: absolute; left: 0; top: .6em;
                     width: 8px; height: 1px; background: var(--steel); }
   .how .fine { margin: 12px 0 0; padding-top: 12px; border-top: 1px solid var(--border); }
@@ -89,32 +92,35 @@
      list, styled like the how-to card, not like a warning. */
   .fwd ul { list-style: none; margin: 8px 0 0; padding: 0; }
   .fwd li { position: relative; padding-left: 16px; margin-bottom: 4px;
-            font-size: 13px; color: var(--fg-2); }
+            font-size: 14px; color: var(--fg-2); }
   .fwd li::before { content: ""; position: absolute; left: 0; top: .6em;
                     width: 8px; height: 1px; background: var(--steel); }
   .fwd p { margin: 12px 0 0; padding-top: 12px; border-top: 1px solid var(--border);
-           font-size: 13px; color: var(--fg-2); }
+           font-size: 14px; color: var(--fg-2); }
 
   .warn { background: var(--card); border: 1px solid var(--border);
           border-left: 2px solid var(--amber); border-radius: 8px;
-          padding: 12px 16px; font-size: 13px; color: var(--fg-2); }
+          padding: 12px 16px; font-size: 14px; color: var(--fg-2); }
   .warn b { color: var(--fg); font-weight: 600; display: block; margin-bottom: 4px; }
 
   /* ── Zone 2/3: the list ───────────────────────────────────────────── */
-  h2 { font-size: 11px; font-weight: 600; letter-spacing: .5px; text-transform: uppercase;
-       color: var(--fg-2); margin: 24px 0 8px; }
+  /* Section names and margin numerals are display type: large, ghosted,
+     tight. They order the page; they are not read as body text. */
+  h2 { font-size: 24px; font-weight: 700; letter-spacing: -.5px; line-height: 1.1;
+       color: var(--ghost); margin: 32px 0 12px; }
   .group { display: flex; flex-direction: column; gap: 8px; }
 
   .q { background: var(--card); border: 1px solid var(--border); border-radius: 8px;
-       padding: 12px 16px; display: grid; grid-template-columns: 24px 1fr; column-gap: 8px; }
+       padding: 12px 16px; display: grid; grid-template-columns: 48px 1fr; column-gap: 12px; }
   /* The priority lane reads as priority: raised surface + a steel edge.
      Three items, which is the maximum UX_04 allows. */
   .q.big { background: var(--raised); border-left: 2px solid var(--steel); }
-  .qnum { grid-column: 1; font-size: 11px; font-weight: 600; color: var(--fg-2);
-          font-variant-numeric: tabular-nums; padding-top: 4px; }
+  .qnum { grid-column: 1; font-size: 40px; font-weight: 700; line-height: 1;
+          letter-spacing: -1px; color: var(--ghost);
+          font-variant-numeric: tabular-nums; margin-top: -4px; }
   .qbody { grid-column: 2; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-  .ask { font-size: 16px; font-weight: 600; letter-spacing: -.2px; line-height: 1.3; }
-  .why { font-size: 13px; color: var(--fg-2); }
+  .ask { font-size: 18px; font-weight: 600; letter-spacing: -.2px; line-height: 1.3; }
+  .why { font-size: 14px; color: var(--fg-2); }
   .why b { font-weight: 600; color: var(--fg); }
 
   .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
@@ -128,7 +134,7 @@
     color: var(--fg-2);
   }
   .typed textarea {
-    font: inherit; font-size: 14px; line-height: 1.45;
+    font: inherit; font-size: 16px; line-height: 1.45;
     background: var(--canvas); color: var(--fg);
     border: 1px solid var(--border-strong); border-radius: 8px;
     padding: 12px; min-height: 96px; width: 100%; resize: vertical;
@@ -138,7 +144,7 @@
                   text-transform: uppercase; color: var(--safe); }
 
   /* ── Controls ─────────────────────────────────────────────────────── */
-  button { font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+  button { font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
            border: 1px solid var(--border-strong); background: transparent;
            color: var(--fg); padding: 8px 12px; min-height: 44px; border-radius: 8px;
            touch-action: manipulation; transition: background-color 150ms ease; }
@@ -168,13 +174,13 @@
   .danger.armed, .danger.armed:hover { background: var(--crit); border-color: var(--crit);
                                         color: #16181b; }
 
-  .time { font-size: 13px; font-variant-numeric: tabular-nums; color: var(--muted); }
+  .time { font-size: 14px; font-variant-numeric: tabular-nums; color: var(--muted); }
   .time.live { color: var(--crit); }
   /* Evidence about the recorder's own stream, not about dictation. */
   .level { flex: none; width: 48px; height: 4px; background: var(--border-strong);
            border-radius: 8px; overflow: hidden; }
   .level i { display: block; height: 100%; width: 0; background: var(--crit); }
-  .keepon { font-size: 13px; color: var(--crit); flex: 1 1 100%; }
+  .keepon { font-size: 14px; color: var(--crit); flex: 1 1 100%; }
 
   .flag { font-size: 11px; font-weight: 600; letter-spacing: .5px; text-transform: uppercase;
           color: var(--safe); }
@@ -189,33 +195,33 @@
   .clip audio { flex: 1 1 100%; width: 100%; min-width: 0; height: 32px; }
   audio { width: 100%; min-width: 0; }
 
-  .said { flex: 1 1 100%; font-size: 13px; color: var(--fg-2); line-height: 1.45;
+  .said { flex: 1 1 100%; font-size: 14px; color: var(--fg-2); line-height: 1.45;
           border-left: 1px solid var(--border-strong); padding-left: 12px; }
   .said.pending { color: var(--muted); font-style: italic; }
-  .err  { font-size: 13px; color: var(--crit); flex: 1 1 100%; }
-  .note { font-size: 13px; color: var(--fg-2); flex: 1 1 100%; }
+  .err  { font-size: 14px; color: var(--crit); flex: 1 1 100%; }
+  .note { font-size: 14px; color: var(--fg-2); flex: 1 1 100%; }
 
   /* ── Action block ─────────────────────────────────────────────────── */
   .synopsis .label { display: block; margin-bottom: 12px; }
   .syn-q + .syn-q { margin-top: 16px; }
-  .syn-ask { font-size: 13px; font-weight: 600; color: var(--fg); margin-bottom: 4px; }
+  .syn-ask { font-size: 14px; font-weight: 600; color: var(--fg); margin-bottom: 4px; }
   .syn-q ul { list-style: none; margin: 0; padding: 0; }
-  .syn-q li { position: relative; padding-left: 16px; font-size: 13px; color: var(--fg-2);
+  .syn-q li { position: relative; padding-left: 16px; font-size: 14px; color: var(--fg-2);
               margin-bottom: 4px; }
   .syn-q li::before { content: ""; position: absolute; left: 0; top: .6em;
                       width: 8px; height: 1px; background: var(--steel); }
-  .syn-note { font-size: 13px; color: var(--muted); margin: 16px 0 0;
+  .syn-note { font-size: 14px; color: var(--muted); margin: 16px 0 0;
               padding-top: 12px; border-top: 1px solid var(--border); }
 
   .actions { margin-top: 24px; display: flex; flex-direction: column; gap: 8px; }
   .actions .send, .actions .second { width: 100%; }
   .second { background: transparent; border-color: var(--border-strong); }
-  .tallynote, .sign { font-size: 13px; color: var(--fg-2); margin: 0; }
+  .tallynote, .sign { font-size: 14px; color: var(--fg-2); margin: 0; }
   .sign b, .tallynote b { color: var(--fg); font-weight: 600; }
   /* The link inside overhangs its text by 16px each side to reach a 44px
      target. This gap absorbs the top overhang so it lands in empty space
      rather than over the line above. */
-  .contact { font-size: 13px; color: var(--fg-2); margin: 8px 0 0; }
+  .contact { font-size: 14px; color: var(--fg-2); margin: 8px 0 0; }
   /* The escape hatch has to be hittable. As inline text these measured
      89x15px — the buttons all clear 44px and this did not, on the one link
      that exists for when something has gone wrong. Padding grows the target;
@@ -230,7 +236,7 @@
   .standing { position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
               background: var(--raised); border-top: 1px solid var(--border-strong);
               padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
-              font-size: 13px; color: var(--fg-2); text-align: center; }
+              font-size: 14px; color: var(--fg-2); text-align: center; }
   .standing b { color: var(--fg); font-weight: 600; }
   .standing a { white-space: nowrap; }
 
@@ -267,8 +273,7 @@
   <div class="rail">
     <header>
       <h1>Talk or type</h1>
-      <p class="sub">Outreach visits · 20 questions · answer any of them, any order,
-        out loud or in writing</p>
+      <p class="sub">Outreach visits · 20 questions · any order, out loud or in writing</p>
     </header>
 
     <div class="ledger">
@@ -277,17 +282,16 @@
     </div>
 
     <section class="card fwd" id="forward">
-      <span class="label">Faster than any answer: forward four things</span>
+      <span class="label">Faster than answering: forward four things</span>
       <ul>
-        <li>Your own list of partner schools and contacts</li>
-        <li>Any spreadsheet, calendar or email folder from a past cycle</li>
-        <li>Anything you’ve been handed on travel approval, official passports,
-          or ethics and hospitality</li>
+        <li>Your partner schools and contacts</li>
+        <li>A spreadsheet, calendar or email folder from a past cycle</li>
+        <li>Anything you’ve been given on travel approval, official passports,
+          or hospitality</li>
         <li>One release request as you send it today, names removed</li>
       </ul>
-      <p>Each one retires questions below. The second alone answers most of them.
-        In return you get the FAA’s own partner map, 39 schools, checked against
-        the 2023 list.</p>
+      <p>Each one retires questions below. You get back the FAA’s partner map,
+        39 schools, checked against the 2023 list.</p>
     </section>
 
 
@@ -323,10 +327,9 @@
       <p class="note" id="sizewarn" hidden></p>
       <p class="tallynote" id="tally" aria-live="polite">Nothing recorded on this page yet.</p>
       <p class="tallynote">Recording in Voice Memos instead? This counter won’t see
-        those &mdash; that’s fine, it’s the better way. It only counts what you
-        recorded <b>on this page, in this browser</b>; open the link in a different
-        app or a private window and it starts back at zero even though nothing
-        was lost.</p>
+        those, and that’s fine. It only counts what you recorded
+        <b>on this page, in this browser</b>. A different app or a private window
+        starts at zero; nothing is lost.</p>
       <p class="sign"><b>No rush, no order, no labels.</b> The first three get me most
         of the way.</p>
       <p class="contact">Stuck, or something looks wrong? Text me &mdash;
@@ -335,29 +338,28 @@
   </main>
 
   <section class="card how">
-      <p class="lead">Talk it through or write it down — whichever is easier that
-        day. I’ll sort out what goes where.</p>
+      <p class="lead">Talk it through or write it down. I’ll sort out what goes
+        where.</p>
       <ul>
         <li>Open <b>Voice Memos</b> and hit record</li>
-        <li>Answer anything that comes to mind &mdash; any order</li>
+        <li>Answer anything, any order</li>
         <li>No names, no numbers, no labeling</li>
-        <li>Send them over whenever</li>
-        <li>Rather write than talk? Every question has a <b>Type it instead</b> box</li>
+        <li>Send whenever</li>
+        <li>Rather write? Every question has a <b>Type it instead</b> box</li>
       </ul>
       <p><b>Better still:</b> skip the list and talk me through the whole job for
-        twenty minutes. What I need most comes out mid-story, not in reply to a
-        question. Ramble &mdash; tangents are the good part.</p>
+        twenty minutes. The best of it comes out mid-story. Tangents are the good
+        part.</p>
       <ul class="fine">
         <li>Transcript under the recording? Send that too.</li>
-        <li>Short answer? Hit <b>Record</b> on a question &mdash; it files itself. Save
-          Voice Memos for the long ones: if your phone locks, a recording made
-          here stops there and keeps only what you had.</li>
+        <li>Short answer? <b>Record</b> on the question. Long one? Voice Memos:
+          if your phone locks, a recording here stops and keeps what you had.</li>
         <li>Anything you record here stays in this browser on this phone until
           you send it.</li>
-        <li id="dictation-note" hidden>Your phone writes each one out as you talk, and
-          the text goes along with the audio. That uses the same dictation your
-          keyboard uses, so it passes through Apple the way Messages dictation
-          does &mdash; the recording itself goes nowhere but to me.</li>
+        <li id="dictation-note" hidden>Your phone writes each one out as you talk
+          and sends the text with the audio. It’s the same dictation your keyboard
+          uses, so it passes through Apple like Messages does. The recording
+          itself goes only to me.</li>
       </ul>
   </section>
 
@@ -375,69 +377,69 @@
   var QUESTIONS = [
     { group: "If you only do three", big: true, id: "q1",
       ask: "Who actually says yes when a controller travels to speak?",
-      why: "Their supervisor, the facility, somebody at the national level? This one decides more about how I build this than anything else." },
+      why: "Supervisor, facility, someone national? This one shapes the build more than any other." },
     { big: true, id: "q2",
       ask: "Walk me through one visit, start to finish.",
-      why: "Easiest as three short ones: <b>getting to the day</b>, <b>the day itself</b>, <b>after</b>. Most of it’s the first &mdash; that’s expected." },
+      why: "Three short ones is easiest: <b>getting to the day</b>, <b>the day</b>, <b>after</b>." },
     { big: true, id: "q3",
       ask: "Tell me about one that went sideways.",
-      why: "Speaker pulled, room empty, AV dead, they ghosted you. What happened and what you did. Stories teach me things a checklist can’t." },
+      why: "Speaker pulled, empty room, dead AV, ghosted. What happened, what you did." },
 
-    { group: "The people part", id: "q4",
+    { group: "People", id: "q4",
       ask: "How do you find controllers willing to go?",
-      why: "And is it the same handful every time?" },
+      why: "Same handful every time?" },
     { id: "q5",
       ask: "What happens when a speaker gets pulled a week out?",
-      why: "What you actually do now, not what you wish you did." },
+      why: "What you actually do, not what you wish you did." },
     { id: "q6",
       ask: "Who fills the room on their side?",
-      why: "Career office, a professor who likes you, an event organizer, a member group? And do you ever show up to the wrong crowd?" },
+      why: "Career office, a friendly professor, an organizer? Ever the wrong crowd?" },
     { id: "q14",
-      ask: "What can you decide alone, and what do you have to go and ask someone for?",
-      why: "Dates, speakers, which schools, spending. The line between the two is the edge of the program, and I’d rather draw it where you say it is." },
+      ask: "What can you decide alone, and what do you have to ask for?",
+      why: "Dates, speakers, schools, spending. That line is the edge of the program." },
 
-    { group: "The logistics part", id: "q7",
-      ask: "How far ahead do you have to lock a date, and what forces that?",
-      why: "Travel paperwork, their calendar, budget timing &mdash; whichever one actually binds." },
+    { group: "Logistics", id: "q7",
+      ask: "How far ahead do you lock a date, and what forces that?",
+      why: "Travel paperwork, their calendar, budget timing. Whichever one binds." },
     { id: "q8",
-      ask: "What kinds of places actually host these?",
-      why: "Colleges, trade schools, job fairs, associations, something else entirely? And which ones are worth the trip?" },
+      ask: "What kinds of places host these?",
+      why: "Colleges, trade schools, job fairs, associations? Which are worth the trip?" },
     { id: "q9",
-      ask: "Is every visit the same shape, or does it change by who’s hosting?",
-      why: "And if it changes &mdash; on purpose, or because they asked?" },
+      ask: "Is every visit the same shape?",
+      why: "If it changes by host: on purpose, or because they asked?" },
     { id: "q10",
       ask: "What’s the rule on a host feeding you or putting you up?",
-      why: "I assume there’s a policy. I’d rather hear it from you than guess at it." },
+      why: "I’d rather hear the policy from you than guess." },
     { id: "q15",
       ask: "Does a virtual session count as a visit?",
-      why: "To you, and to whoever counts them. If it does, the scarce thing stops being travel and the whole calendar changes shape." },
+      why: "To you, and to whoever counts. If yes, the calendar changes shape." },
 
-    { group: "Whether it worked", id: "q11",
-      ask: "Someone’s genuinely interested. What happens next?",
-      why: "Do you collect anything from them, hand them off, point them somewhere?" },
+    { group: "Did it work", id: "q11",
+      ask: "Someone’s interested. What happens next?",
+      why: "Collect something, hand them off, point them somewhere?" },
     { id: "q12",
-      ask: "Who judges whether this program is working, and on what?",
-      why: "Headcount, applications, something else? I want to build toward the thing you’re actually measured on." },
+      ask: "Who judges whether this is working, and on what?",
+      why: "Headcount, applications, something else? I build toward what you’re measured on." },
     { id: "q13",
-      ask: "If you handed this to someone tomorrow, what would they get wrong?",
-      why: "My favorite question. The stuff that isn’t written down anywhere." },
+      ask: "If you handed this off tomorrow, what would they get wrong?",
+      why: "The stuff that isn’t written down anywhere." },
 
     { group: "Your desk", id: "q16",
       ask: "What do you re-type most often?",
-      why: "The same names into a request, the same dates into three places, the same reply to a school. Whatever it is, that’s the first thing I automate." },
+      why: "Whatever it is, that gets automated first." },
     { id: "q17",
-      ask: "Where do the program’s records have to live, and who says so?",
-      why: "A shared drive, a mailbox, your own machine, somewhere with a rule attached? Tell me the rule if there is one, and who set it." },
+      ask: "Where do the records have to live, and who says so?",
+      why: "Shared drive, mailbox, your machine? Name the rule if there is one." },
     { id: "q18",
-      ask: "What’s on your desk for mail, calendar, files and spreadsheets, and who owns the program mailbox?",
-      why: "Outlook, Teams, Excel, something else? What are you allowed to install? And 9-ATO-ATCTI@FAA.GOV: is it yours, and could a forwarding rule be set on it?" },
+      ask: "What’s on your desk: mail, calendar, files, spreadsheets?",
+      why: "Outlook, Teams, Excel? What can you install? And is 9-ATO-ATCTI@FAA.GOV yours to set a forwarding rule on?" },
 
-    { group: "Two you can just type", id: "q19",
-      ask: "Your home airport, and the cities you fly to most.",
-      why: "Two lines is plenty. It finishes the fare and per diem checks I can’t do without it." },
+    { group: "Just type these", id: "q19",
+      ask: "Home airport, and the cities you fly to most.",
+      why: "Two lines. It finishes the fare and per diem checks." },
     { id: "q20",
-      ask: "Of the schools on the FAA’s partner map, which ones are you actually in touch with, and which are Enhanced?",
-      why: "The map lists 39. I’ll send you that list; mark it up any way you like, or just name the live ones here." }
+      ask: "Which schools on the FAA’s map are live, and which are Enhanced?",
+      why: "It lists 39. I’ll send it; mark it up, or name them here." }
   ];
   // ---- capability checks, before any UI promises recording ----------------
   var canRecord =
@@ -545,7 +547,7 @@
     // never asked to quote it; it orders the list. It is the position, not the
     // id: ids stay fixed so anything already saved under one keeps its home
     // when a question is added mid-list, and the id names this recorder's files.
-    card.appendChild(el("div", "qnum", String(i + 1)));
+    card.appendChild(el("div", "qnum", (i + 1 < 10 ? "0" : "") + (i + 1)));
     var body = el("div", "qbody");
     body.appendChild(el("div", "ask", q.ask));
     body.appendChild(el("div", "why", q.why));

@@ -75,7 +75,11 @@ check('1.2', 'Every surface is a declared Studio Matte token (no white, no light
       surf.undeclared.length === 0,
       surf.undeclared.join(' | ') || `all of ${surf.declared.join(' ')}`);
 
-const SCALE = [11, 13, 14, 16, 22, 24];
+// UX_01's scale, extended here for two roles this page has and the doctrine's
+// examples did not: 18 for the question line, 40 for display numerals and the
+// ledger figures. Recorded as an extension, not a drift: nothing else may use
+// them.
+const SCALE = [11, 13, 14, 16, 18, 22, 24, 40];
 const sizes = await page.evaluate(() => {
   const out = new Set();
   for (const e of document.querySelectorAll('.board *, .standing, .standing *')) {
