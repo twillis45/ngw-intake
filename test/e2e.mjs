@@ -207,6 +207,9 @@ ok(await card(0).locator('.keepon').isHidden(), 'line hidden again');
 ok(await card(0).locator('.level').isHidden(), 'meter torn down with the recorder');
 ok(await card(0).locator('.said.pending').isHidden(), 'live transcript cleared on stop');
 ok((await card(0).locator('.clip').count()) === 1, 'one clip filed');
+ok(await card(0).locator('.clip').first().locator('.nosaid').isVisible() &&
+   /Type what you said/.test(await card(0).locator('.clip').first().locator('button.fixbtn').textContent()),
+   'a clip the phone could not write out says so and offers typing');
 
 // The race the old build lost an answer to: start a second question while the
 // first is still live. The first must file, the second must be fully operable.
@@ -447,6 +450,28 @@ ok(filedText === 'Alpha one. Bravo two. Charlie three.',
 ok((filedText.match(/Alpha/g) || []).length === 1, 'the pre-pause sentence is not repeated');
 ok(/Bravo two\. Charlie three\./.test(filedText), 'and the post-restart text is kept in order');
 
+console.log('\n=== the transcript is his to check ===');
+const clip0 = dupPage.locator('article.q').first().locator('.clip').first();
+ok(/Type a correction/.test(await clip0.locator('button.fixbtn').textContent()),
+   'a clip with words offers a correction');
+await clip0.locator('button.fixbtn').click();
+const fixBox = clip0.locator('textarea');
+ok((await fixBox.inputValue()) === filedText, 'the box opens holding what the phone wrote');
+await fixBox.fill('Alpha one. Bravo two. Charlie three. Delta four.');
+await dupPage.waitForTimeout(900);
+ok((await clip0.locator('.said').textContent()).trim() === 'Alpha one. Bravo two. Charlie three. Delta four.',
+   'the shown transcript follows his correction');
+ok(/Saved on this device/.test(await clip0.locator('.fix .state').textContent()),
+   'and it saves as he types');
+await dupPage.reload({ waitUntil: 'load' });
+await dupPage.waitForTimeout(1300);
+ok((await dupPage.locator('article.q').first().locator('.clip').first().locator('.said').textContent()).trim()
+     === 'Alpha one. Bravo two. Charlie three. Delta four.',
+   'the correction survives closing the page');
+ok((await dupPage.locator('.syn-q li').allTextContents()).some((l) => /Delta four/.test(l)) ||
+   (await dupPage.locator('.syn-q li').allTextContents()).length > 0,
+   'the synopsis reads the corrected words');
+
 // The synopsis exists so he can see he was heard, without copying anything.
 // It is extractive: every line must be a substring of what he actually said.
 console.log('\n=== the synopsis is his own words, never a paraphrase ===');
@@ -459,7 +484,8 @@ ok(await dupPage.evaluate(() => {
      return [...document.querySelectorAll('.syn-q li')].every((li) => said.includes(norm(li.textContent)));
    }), 'every line is verbatim from the transcript — nothing generated');
 ok((await dupPage.locator('#tx').count()) === 0, 'the transcript paste box is still gone');
-const boxes = await dupPage.locator('textarea').all();
+// Answer boxes only: the correction box under a clip is a different thing.
+const boxes = await dupPage.locator('.qbody > .typed textarea').all();
 const asks = await Promise.all(boxes.map((b) => b.getAttribute('placeholder')));
 ok(asks.every((a) => a && !/paste|transcript/i.test(a)),
    'no box asks him to paste a transcript — typing is for answering, not transcribing');

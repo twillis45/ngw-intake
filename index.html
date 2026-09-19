@@ -231,6 +231,9 @@
   .said.pending { color: var(--muted); font-style: italic; }
   .err  { font-size: 14px; color: var(--crit); flex: 1 1 100%; }
   .note { font-size: 14px; color: var(--fg-2); flex: 1 1 100%; }
+  /* A clip the phone could not write out says so, in the same voice. */
+  .nosaid { font-size: 14px; color: var(--muted); flex: 1 1 100%; }
+  .clip .typed { flex: 1 1 100%; }
 
   /* ── Action block ─────────────────────────────────────────────────── */
   .syn-q + .syn-q { margin-top: 16px; }
@@ -806,12 +809,63 @@
       quiet.style.color = "var(--crit)";
       rowEl.appendChild(quiet);
     }
-    if (clip.said) {
-      var said = el("div", "said");
-      said.textContent = clip.said;
-      rowEl.appendChild(said);
-      rec.saidEl = said;
-    }
+    // What the phone heard is his to check. The row shows it; a tap opens a
+    // box holding the same words to fix, or to type what he said when the
+    // phone wrote nothing. Saved as he types, into the clip itself, so the
+    // correction travels with the recording and the file says it was checked.
+    var said = el("div", "said");
+    said.textContent = clip.said || "";
+    said.hidden = !clip.said;
+    rowEl.appendChild(said);
+    rec.saidEl = said;
+    var nosaid = el("div", "nosaid", "No transcript on this one. The recording is the record.");
+    nosaid.hidden = !!clip.said || !!clip.silent;
+    rowEl.appendChild(nosaid);
+    var fixBtn = el("button", "fixbtn", clip.said ? "Type a correction" : "Type what you said");
+    fixBtn.type = "button";
+    var fix = el("div", "typed fix");
+    fix.hidden = true;
+    var fixId = "fix-" + k.replace("::", "-");
+    var flab = document.createElement("label");
+    flab.setAttribute("for", fixId);
+    flab.textContent = "The words, as you would have them read";
+    var fta = document.createElement("textarea");
+    fta.id = fixId;
+    fta.rows = 3;
+    fta.placeholder = "Fix a word, or write the whole thing.";
+    var fstate = el("span", "state", "");
+    fstate.hidden = true;
+    fix.appendChild(flab); fix.appendChild(fta); fix.appendChild(fstate);
+    rowEl.appendChild(fixBtn); rowEl.appendChild(fix);
+    fixBtn.addEventListener("click", function () {
+      fix.hidden = !fix.hidden;
+      if (!fix.hidden) { fta.value = rec.clip.said || ""; fta.focus(); }
+      fixBtn.textContent = !fix.hidden ? "Hide the box"
+                         : rec.clip.said ? "Type a correction" : "Type what you said";
+    });
+    var fixPending = null;
+    fta.addEventListener("input", function () {
+      clearTimeout(fixPending);
+      fstate.hidden = false;
+      fstate.textContent = "Saving\u2026";
+      fstate.style.color = "var(--muted)";
+      fixPending = setTimeout(function () {
+        var v = fta.value.replace(/\s+/g, " ").trim();
+        rec.clip.said = v;
+        rec.clip.checked = !!v;
+        said.textContent = v;
+        said.hidden = !v;
+        nosaid.hidden = !!v || !!rec.clip.silent;
+        put(rec.key, rec.clip).then(function () {
+          fstate.textContent = "Saved on this device";
+          fstate.style.color = "";
+        }).catch(function () {
+          fstate.textContent = "Not saved \u2014 copy this somewhere before you close the page";
+          fstate.style.color = "var(--crit)";
+        });
+        tally();
+      }, 400);
+    });
     c.clipsEl.appendChild(rowEl);
     rec.el = rowEl; rec.flag = flag; rec.delBtn = del;
 
@@ -1359,7 +1413,7 @@
         var base = baseName(it.id, it.rec);
         var out = [{ name: base + "." + extFor(bareType(it.rec.clip.type)), bytes: bytes }];
         if (it.rec.clip.said) {
-          var body = transcriptBody(it.id, it.rec.clip.said, "said");
+          var body = transcriptBody(it.id, it.rec.clip.said, it.rec.clip.checked ? "checked" : "said");
           out.push({ name: base + ".txt",
                      bytes: (window.TextEncoder ? new TextEncoder().encode(body)
                                                 : new Uint8Array(0)) });
@@ -1398,7 +1452,8 @@
     var ask = cards[id].q.ask.replace(/<[^>]+>/g, "");
     return (i < 10 ? "0" : "") + i + " \u00b7 " + ask + "\n" +
       (how === "typed" ? "Typed on the phone."
-                       : "Dictated on the phone as he spoke, unchecked. The recording is the record.") +
+       : how === "checked" ? "Dictated on the phone, then read and corrected by him."
+       : "Dictated on the phone as he spoke, unchecked. The recording is the record.") +
       "\n\n" + text + "\n";
   }
   function fileFor(id, rec) {
@@ -1411,7 +1466,7 @@
   // no pasting, and it survives being forwarded.
   function textFor(id, rec) {
     if (!rec.clip.said) return null;
-    var body = transcriptBody(id, rec.clip.said, "said");
+    var body = transcriptBody(id, rec.clip.said, rec.clip.checked ? "checked" : "said");
     try { return new File([body], baseName(id, rec) + ".txt", { type: "text/plain" }); }
     catch (e) { return null; }
   }
