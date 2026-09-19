@@ -63,18 +63,21 @@ const record = async (id, ms) => {
   await page.waitForTimeout(900);
 };
 const card = (n) => page.locator('article.q').nth(n);
+// The count the page promises in its header and ledger. One place, so adding
+// a question is a one-line change here and the rest of the run follows.
+const N = 20;
 
 console.log('\n=== at rest ===');
-ok((await page.locator('article.q').count()) === 13, '13 question cards');
-ok((await page.locator('#fig-answered').textContent()) === '0/13' &&
+ok((await page.locator('article.q').count()) === N, `${N} question cards`);
+ok((await page.locator('#fig-answered').textContent()) === `0/${N}` &&
    (await page.locator('#fig-clips').textContent()) === '0', 'ledger reads zero');
 ok(/Nothing recorded or typed on this page yet/.test(await page.locator('#tally').textContent()),
    'and the line says what that means, naming both ways to answer');
 ok(!(await page.locator('#sendall').isVisible()), 'Send all hidden');
 ok((await page.locator('article.q audio:visible').count()) === 0, 'no dead audio players');
 const nums = await page.locator('.qnum').allTextContents();
-ok(nums.join(',') === Array.from({ length: 13 }, (_, i) => String(i + 1)).join(','),
-   'margin numbers run 1..13 in order');
+ok(nums.join(',') === Array.from({ length: N }, (_, i) => String(i + 1)).join(','),
+   `margin numbers run 1..${N} in order`);
 
 console.log('\n=== copy ===');
 const how = await page.locator('.how').textContent();
@@ -126,7 +129,7 @@ ok(await page.locator('#mic-q1').evaluate((b) => parseFloat(getComputedStyle(b).
 // UX_04 4.4: content lives in containers. The previous build asserted the
 // reverse — "no panels, cards or tinted blocks" — which is exactly why it
 // read flat. The assertion inverts rather than disappears.
-ok((await page.locator('.q').count()) === 13 &&
+ok((await page.locator('.q').count()) === N &&
    await card(0).evaluate((e) => getComputedStyle(e).backgroundColor !== 'rgba(0, 0, 0, 0)'),
    'every question sits on its own card surface');
 // UX_02: the accent marks ONE primary target per view, and only interactives.
@@ -220,7 +223,7 @@ ok((await card(0).locator('.clip .part').first().textContent()) === 'Part 1', 's
 
 await page.reload({ waitUntil: 'load' });
 await page.waitForTimeout(1100);
-ok((await page.locator('#fig-answered').textContent()) === '3/13', 'restored after reload');
+ok((await page.locator('#fig-answered').textContent()) === `3/${N}`, 'restored after reload');
 ok(!(await page.locator('#restorefail').isVisible()), 'no false restore-failure banner');
 
 // The page warns that a screen lock can cut a recording off. Warning is not
@@ -413,7 +416,7 @@ const boxes = await dupPage.locator('textarea').all();
 const asks = await Promise.all(boxes.map((b) => b.getAttribute('placeholder')));
 ok(asks.every((a) => a && !/paste|transcript/i.test(a)),
    'no box asks him to paste a transcript — typing is for answering, not transcribing');
-ok(boxes.length === 13, `every question offers typing as well as recording (${boxes.length})`);
+ok(boxes.length === N, `every question offers typing as well as recording (${boxes.length})`);
 // The page must not tell him not to do the thing it offers.
 const h1 = await dupPage.locator('h1').textContent();
 ok(!/don\u2019t type|don't type/i.test(h1), `the title does not contradict the typing box (${h1})`);
@@ -473,7 +476,7 @@ const clipNote = noteCount
   ? await dp2.locator('article.q').first().locator('.clip .note').first().textContent() : '';
 ok(noteCount === 1 && /No sound on this one/.test(clipNote),
    `the clip itself is marked as empty (${noteCount} marks: "${clipNote.slice(0, 40)}")`);
-ok((await dp2.locator('#fig-answered').textContent()) === '0/13',
+ok((await dp2.locator('#fig-answered').textContent()) === `0/${N}`,
    'a silent recording does not count as an answer given');
 await deaf.close();
 
@@ -491,7 +494,7 @@ await hp2.locator('#mic-q1').click();
 await hp2.waitForTimeout(1200);
 ok((await hp2.locator('article.q').first().locator('.clip .note').count()) === 0,
    'and the clip is not marked empty');
-ok((await hp2.locator('#fig-answered').textContent()) === '1/13',
+ok((await hp2.locator('#fig-answered').textContent()) === `1/${N}`,
    'a real recording counts as an answer');
 await heard2.close();
 
@@ -577,7 +580,7 @@ await tp.locator('#text-q1').fill(ANSWER);
 await tp.waitForTimeout(900);
 ok(/Saved on this device/.test(await tp.locator('article.q').first().locator('.state').textContent()),
    'it saves as he types, with no Save button to forget');
-ok((await tp.locator('#fig-answered').textContent()) === '1/13',
+ok((await tp.locator('#fig-answered').textContent()) === `1/${N}`,
    'a typed answer counts as answered');
 ok(/typed answer/.test(await tp.locator('#tally').textContent()),
    'and the tally says so in words');
@@ -608,7 +611,7 @@ ok(tb.includes(Buffer.from('cory-q1-typed.txt', 'utf8')),
 // Emptying the box must clear the answer, not leave a ghost counted forever.
 await tp.locator('#text-q1').fill('');
 await tp.waitForTimeout(900);
-ok((await tp.locator('#fig-answered').textContent()) === '0/13',
+ok((await tp.locator('#fig-answered').textContent()) === `0/${N}`,
    'clearing the box un-answers the question');
 await typ.close();
 

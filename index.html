@@ -84,6 +84,17 @@
   .how .fine { margin: 12px 0 0; padding-top: 12px; border-top: 1px solid var(--border); }
   .how b { font-weight: 600; color: var(--fg); }
 
+  /* The forward-first ask. Half of what the questions below want arrives
+     faster as a file he already has than as an answer, so it sits above the
+     list, styled like the how-to card, not like a warning. */
+  .fwd ul { list-style: none; margin: 8px 0 0; padding: 0; }
+  .fwd li { position: relative; padding-left: 16px; margin-bottom: 4px;
+            font-size: 13px; color: var(--fg-2); }
+  .fwd li::before { content: ""; position: absolute; left: 0; top: .6em;
+                    width: 8px; height: 1px; background: var(--steel); }
+  .fwd p { margin: 12px 0 0; padding-top: 12px; border-top: 1px solid var(--border);
+           font-size: 13px; color: var(--fg-2); }
+
   .warn { background: var(--card); border: 1px solid var(--border);
           border-left: 2px solid var(--amber); border-radius: 8px;
           padding: 12px 16px; font-size: 13px; color: var(--fg-2); }
@@ -256,14 +267,28 @@
   <div class="rail">
     <header>
       <h1>Talk or type</h1>
-      <p class="sub">Outreach visits · 13 questions · answer any of them, any order,
+      <p class="sub">Outreach visits · 20 questions · answer any of them, any order,
         out loud or in writing</p>
     </header>
 
     <div class="ledger">
-      <div class="fig"><span class="n" id="fig-answered">0/13</span><span class="label">Answered</span></div>
+      <div class="fig"><span class="n" id="fig-answered">0/20</span><span class="label">Answered</span></div>
       <div class="fig"><span class="n" id="fig-clips">0</span><span class="label">Recordings</span></div>
     </div>
+
+    <section class="card fwd" id="forward">
+      <span class="label">Faster than any answer: forward four things</span>
+      <ul>
+        <li>Your own list of partner schools and contacts</li>
+        <li>Any spreadsheet, calendar or email folder from a past cycle</li>
+        <li>Anything you’ve been handed on travel approval, official passports,
+          or ethics and hospitality</li>
+        <li>One release request as you send it today, names removed</li>
+      </ul>
+      <p>Each one retires questions below. The second alone answers most of them.
+        In return you get the FAA’s own partner map, 39 schools, checked against
+        the 2023 list.</p>
+    </section>
 
 
     <div class="warn" id="insecure" hidden>
@@ -367,6 +392,9 @@
     { id: "q6",
       ask: "Who fills the room on their side?",
       why: "Career office, a professor who likes you, an event organizer, a member group? And do you ever show up to the wrong crowd?" },
+    { id: "q14",
+      ask: "What can you decide alone, and what do you have to go and ask someone for?",
+      why: "Dates, speakers, which schools, spending. The line between the two is the edge of the program, and I’d rather draw it where you say it is." },
 
     { group: "The logistics part", id: "q7",
       ask: "How far ahead do you have to lock a date, and what forces that?",
@@ -380,6 +408,9 @@
     { id: "q10",
       ask: "What’s the rule on a host feeding you or putting you up?",
       why: "I assume there’s a policy. I’d rather hear it from you than guess at it." },
+    { id: "q15",
+      ask: "Does a virtual session count as a visit?",
+      why: "To you, and to whoever counts them. If it does, the scarce thing stops being travel and the whole calendar changes shape." },
 
     { group: "Whether it worked", id: "q11",
       ask: "Someone’s genuinely interested. What happens next?",
@@ -389,7 +420,24 @@
       why: "Headcount, applications, something else? I want to build toward the thing you’re actually measured on." },
     { id: "q13",
       ask: "If you handed this to someone tomorrow, what would they get wrong?",
-      why: "My favorite question. The stuff that isn’t written down anywhere." }
+      why: "My favorite question. The stuff that isn’t written down anywhere." },
+
+    { group: "Your desk", id: "q16",
+      ask: "What do you re-type most often?",
+      why: "The same names into a request, the same dates into three places, the same reply to a school. Whatever it is, that’s the first thing I automate." },
+    { id: "q17",
+      ask: "Where do the program’s records have to live, and who says so?",
+      why: "A shared drive, a mailbox, your own machine, somewhere with a rule attached? Tell me the rule if there is one, and who set it." },
+    { id: "q18",
+      ask: "What’s on your desk for mail, calendar, files and spreadsheets, and who owns the program mailbox?",
+      why: "Outlook, Teams, Excel, something else? What are you allowed to install? And 9-ATO-ATCTI@FAA.GOV: is it yours, and could a forwarding rule be set on it?" },
+
+    { group: "Two you can just type", id: "q19",
+      ask: "Your home airport, and the cities you fly to most.",
+      why: "Two lines is plenty. It finishes the fare and per diem checks I can’t do without it." },
+    { id: "q20",
+      ask: "Of the schools on the FAA’s partner map, which ones are you actually in touch with, and which are Enhanced?",
+      why: "The map lists 39. I’ll send you that list; mark it up any way you like, or just name the live ones here." }
   ];
   // ---- capability checks, before any UI promises recording ----------------
   var canRecord =
@@ -484,7 +532,7 @@
   }
 
   var group = null;
-  QUESTIONS.forEach(function (q) {
+  QUESTIONS.forEach(function (q, i) {
     if (q.group) {
       // The first group is the priority lane — three items, the maximum
       // UX_04 allows, and it lays out three-up rather than two.
@@ -494,8 +542,10 @@
     }
     var card = el("article", "q" + (q.big ? " big" : ""));
     // The number hangs in the margin like a numbered list, not a badge. He is
-    // never asked to quote it; it orders the list and names this recorder's files.
-    card.appendChild(el("div", "qnum", q.id.slice(1)));
+    // never asked to quote it; it orders the list. It is the position, not the
+    // id: ids stay fixed so anything already saved under one keeps its home
+    // when a question is added mid-list, and the id names this recorder's files.
+    card.appendChild(el("div", "qnum", String(i + 1)));
     var body = el("div", "qbody");
     body.appendChild(el("div", "ask", q.ask));
     body.appendChild(el("div", "why", q.why));
