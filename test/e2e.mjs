@@ -65,7 +65,7 @@ const record = async (id, ms) => {
 const card = (n) => page.locator('article.q').nth(n);
 // The count the page promises in its header and ledger. One place, so adding
 // a question is a one-line change here and the rest of the run follows.
-const N = 20;
+const N = 22;
 
 console.log('\n=== at rest ===');
 ok((await page.locator('article.q').count()) === N, `${N} question cards`);

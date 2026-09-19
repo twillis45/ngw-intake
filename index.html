@@ -242,7 +242,7 @@
 
   /* ── Tablet and up: a board, not a stretched column. ──────────────────
      The void budget is absolute above the phone — no empty region wider
-     than 320px — so the column cannot simply centre itself in 1440px with
+     than 320px — so the column cannot simply center itself in 1440px with
      400px of canvas running to each edge. The rail takes that space and
      bounds it with content on two sides. */
   @media (min-width: 768px) {
@@ -273,11 +273,11 @@
   <div class="rail">
     <header>
       <h1>Talk or type</h1>
-      <p class="sub">Outreach visits · 20 questions · any order, out loud or in writing</p>
+      <p class="sub">Outreach visits · 22 questions · any order, out loud or in writing</p>
     </header>
 
     <div class="ledger">
-      <div class="fig"><span class="n" id="fig-answered">0/20</span><span class="label">Answered</span></div>
+      <div class="fig"><span class="n" id="fig-answered">0/22</span><span class="label">Answered</span></div>
       <div class="fig"><span class="n" id="fig-clips">0</span><span class="label">Recordings</span></div>
     </div>
 
@@ -300,8 +300,8 @@
       record buttons will work.
     </div>
     <div class="warn" id="unsupported" hidden>
-      <b>This browser can’t record here.</b> Use your phone’s voice memo app instead
-      and send them over. The questions below are the same.
+      <b>This browser can’t record here.</b> Type your answers instead, or use your
+      phone’s voice memo app and send them over. The questions are the same.
     </div>
     <div class="warn" id="restorefail" hidden>
       <b>Couldn’t read what you recorded before.</b> Don’t record over it yet &mdash;
@@ -325,7 +325,7 @@
       <button type="button" id="downloadall" class="second" hidden>Save them all as one file</button>
       <div class="err" id="sendall-err" hidden></div>
       <p class="note" id="sizewarn" hidden></p>
-      <p class="tallynote" id="tally" aria-live="polite">Nothing recorded on this page yet.</p>
+      <p class="tallynote" id="tally" aria-live="polite">Nothing recorded or typed on this page yet.</p>
       <p class="tallynote">Recording in Voice Memos instead? This counter won’t see
         those, and that’s fine. It only counts what you recorded
         <b>on this page, in this browser</b>. A different app or a private window
@@ -341,7 +341,7 @@
       <p class="lead">Talk it through or write it down. I’ll sort out what goes
         where.</p>
       <ul>
-        <li>Open <b>Voice Memos</b> and hit record</li>
+        <li>Tap <b>Record</b> on any question, or open <b>Voice Memos</b> and talk</li>
         <li>Answer anything, any order</li>
         <li>No names, no numbers, no labeling</li>
         <li>Send whenever</li>
@@ -358,8 +358,8 @@
           you send it.</li>
         <li id="dictation-note" hidden>Your phone writes each one out as you talk
           and sends the text with the audio. It’s the same dictation your keyboard
-          uses, so it passes through Apple like Messages does. The recording
-          itself goes only to me.</li>
+          uses and goes wherever that goes. The recording itself goes only to
+          me.</li>
       </ul>
   </section>
 
@@ -435,11 +435,18 @@
       why: "Outlook, Teams, Excel? What can you install? And is 9-ATO-ATCTI@FAA.GOV yours to set a forwarding rule on?" },
 
     { group: "Just type these", id: "q19",
-      ask: "Home airport, and the cities you fly to most.",
-      why: "Two lines. It finishes the fare and per diem checks." },
+      ask: "Home airport, the cities you fly to most, and the Australian city in October.",
+      why: "Three lines. They finish the fare and per diem checks." },
     { id: "q20",
       ask: "Which schools on the FAA’s map are you actually in touch with?",
-      why: "It lists 39 and marks the Enhanced ones, so I only need the live ones. I’ll send it; mark it up, or name them here." }
+      why: "It lists 39 and marks the Enhanced ones, so I only need the live ones. I’ll send it; mark it up, or name them here." },
+
+    { group: "Australia in October", id: "q21",
+      ask: "Who’s hosting, what do they want from you, and for how many days?",
+      why: "The host, the format, the dates. That sets the arrival buffer and how many nights the authorization has to cover." },
+    { id: "q22",
+      ask: "What has getting approved for it taken so far?",
+      why: "Official passport or regular, visa or ETA, who signed, how long each step took, and whether October 1 funding changes anything. Whatever you’ve been told, in your words." }
   ];
   // ---- capability checks, before any UI promises recording ----------------
   var canRecord =
@@ -781,7 +788,7 @@
     r.continuous = true;
     r.interimResults = true;
     r.lang = navigator.language || "en-US";
-    // ev.results is CUMULATIVE for the current recogniser session, and
+    // ev.results is CUMULATIVE for the current recognizer session, and
     // resultIndex only points at the first entry that changed. Appending the
     // slice from resultIndex onto a running string re-adds every final the
     // event still carries, so one sentence lands three, six, twelve times —
@@ -794,7 +801,7 @@
     // Restart discipline. onend fires after every error too, so restarting
     // from it unconditionally spins start -> error -> end as fast as the
     // browser allows: measured at ~470 cycles a second for the length of the
-    // recording when the recogniser cannot get the microphone. That is battery
+    // recording when the recognizer cannot get the microphone. That is battery
     // and CPU burned at the exact moment he is talking.
     var fails = 0, lastStart = 0, retry = null;
     function fold() { committed += session; session = ""; }
@@ -935,7 +942,7 @@
       } catch (e) {
         stream.getTracks().forEach(function (t) { t.stop(); });
         starting = false; resetBtn(c);
-        say(c, "This browser couldn\u2019t start a recording. Use your phone\u2019s voice memo app for this one.");
+        say(c, "This browser couldn\u2019t start a recording. Type this one instead, or use your phone\u2019s voice memo app.");
         return;
       }
 
@@ -1016,7 +1023,7 @@
       try { rec.start(); } catch (e) {
         stream.getTracks().forEach(function (t) { t.stop(); });
         starting = false; resetBtn(c);
-        say(c, "Couldn\u2019t start recording. Use your phone\u2019s voice memo app for this one.");
+        say(c, "Couldn\u2019t start recording. Type this one instead, or use your phone\u2019s voice memo app.");
         return;
       }
 
@@ -1075,7 +1082,7 @@
       } else if (name === "NotReadableError") {
         say(c, "Another app has the microphone \u2014 a call, or CarPlay. Close it and tap record again.");
       } else if (name === "NotFoundError") {
-        say(c, "No microphone found. Your phone\u2019s voice memo app works just as well.");
+        say(c, "No microphone found. Type it instead, or use your phone\u2019s voice memo app.");
       } else {
         say(c, "Couldn\u2019t start the microphone. Your phone\u2019s voice memo app works just as well.");
       }
