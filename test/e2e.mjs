@@ -113,8 +113,13 @@ ok((await isOpen(card(0))) && !(await isOpen(card(3))), 'and back again');
 await page.waitForTimeout(250);
 ok(await page.locator('#forward').evaluate((e) => !e.querySelector('details').open),
    'the forward-first card folds to one line');
-ok(await page.locator('.how').evaluate((e) => e.querySelector('details').open),
-   'the how-to stays open while nothing has been answered');
+ok(await page.locator('.how .lead').isVisible() && !(await page.locator('.how details').evaluate((d) => d.open)),
+   'the how-to shows its lead and three lines, with the rest folded');
+ok(await page.evaluate(() => {
+     const how = document.querySelector('.how').getBoundingClientRect();
+     const first = document.querySelector('article.q').getBoundingClientRect();
+     return how.bottom <= first.top;
+   }), 'the instructions come before the first question');
 
 console.log('\n=== copy ===');
 const how = await page.locator('.how').textContent();
@@ -266,8 +271,7 @@ ok((await page.locator('article.q.open').count()) === 1 && !(await isOpen(card(0
    'after reload the open question is the first one without an answer');
 ok(new RegExp(`3 of ${N} set`).test(await page.locator('#next').textContent()),
    'and the whisper counts what is set');
-ok(await page.locator('.how').evaluate((e) => !e.querySelector('details').open),
-   'the how-to folds once he has started');
+
 ok(!(await page.locator('#restorefail').isVisible()), 'no false restore-failure banner');
 
 // The page warns that a screen lock can cut a recording off. Warning is not

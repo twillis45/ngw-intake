@@ -53,7 +53,7 @@
 
   .board { max-width: 448px; margin: 0 auto; padding: 16px 16px 24px;
            display: grid; grid-template-columns: 1fr; gap: 16px;
-           grid-template-areas: "rail" "list" "how"; }
+           grid-template-areas: "rail" "how" "list"; }
   .rail { grid-area: rail; } .list { grid-area: list; } .how { grid-area: how; }
 
   /* ── Zone 1: command header ───────────────────────────────────────── */
@@ -94,7 +94,8 @@
   .card > details > summary::-webkit-details-marker { display: none; }
   .card > details > summary:focus-visible { outline: 2px solid var(--steel-text); outline-offset: 2px; }
   .card > details[open] > summary { margin-bottom: 8px; }
-  .how details[open] .lead { margin-bottom: 0; }
+  .how .lead { margin-bottom: 8px; }
+  .how details { margin-top: 4px; }
 
   /* The forward-first ask. Half of what the questions below want arrives
      faster as a file he already has than as an answer, so it sits above the
@@ -117,6 +118,7 @@
      tight. They order the page; they are not read as body text. */
   h2 { font-size: 24px; font-weight: 700; letter-spacing: -.5px; line-height: 1.1;
        color: var(--ghost); margin: 32px 0 12px; }
+  #questions > .group:first-of-type > h2:first-child { margin-top: 0; }
   .group { display: flex; flex-direction: column; gap: 8px; }
 
   /* ── Attention: one question open, the rest a quiet index ───────────
@@ -273,7 +275,6 @@
              grid-template-rows: auto 1fr; gap: 24px;
              grid-template-areas: "rail list" "how list"; align-items: start; }
     .list { min-width: 0; }
-    .list > .group:first-of-type > h2:first-child, .list > h2:first-child { margin-top: 0; }
     /* Denser, not wider: two lanes of questions once there is room. */
     /* Rows keep their own height: a folded question beside an open one
        stays a row, not a tall empty card. */
@@ -295,7 +296,7 @@
   <div class="rail">
     <header>
       <h1>Talk or type</h1>
-      <p class="sub">Outreach visits · 22 questions · any order, out loud or in writing</p>
+      <p class="sub">22 questions · any order · talk or type</p>
     </header>
 
     <div class="ledger">
@@ -355,16 +356,15 @@
   </main>
 
   <section class="card how">
-      <details>
-      <summary><span class="lead">Talk it through or write it down. I’ll sort out what
-        goes where.</span></summary>
+      <p class="lead">Talk it through or write it down. I’ll sort out what
+        goes where.</p>
       <ul>
-        <li>Tap <b>Record</b> on any question, or open <b>Voice Memos</b> and talk</li>
-        <li>Answer anything, any order</li>
+        <li>Tap <b>Record</b> on any question, or open <b>Voice Memos</b> and talk. Any order.</li>
         <li>No names, no numbers, no labeling</li>
-        <li>Send whenever</li>
         <li>Rather write? Every question has a <b>Type it instead</b> box</li>
       </ul>
+      <details>
+      <summary><span class="label">More, if you want it</span></summary>
       <p><b>Better still:</b> skip the list and talk me through the whole job for
         twenty minutes. The best of it comes out mid-story. Tangents are the good
         part.</p>
@@ -691,8 +691,6 @@
     var ids = Object.keys(cards), first = null;
     ids.forEach(function (k) { if (!first && !isAnswered(k)) first = k; });
     ids.forEach(function (k) { if (!isLive(cards[k])) cards[k].det.open = (k === first); });
-    // The how-to is needed until he has started; after that it folds.
-    document.querySelector(".how details").open = !ids.some(isAnswered);
     budget();
     whisper();
   }
