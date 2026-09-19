@@ -233,7 +233,6 @@
   .note { font-size: 14px; color: var(--fg-2); flex: 1 1 100%; }
 
   /* ── Action block ─────────────────────────────────────────────────── */
-  .synopsis .label { display: block; margin-bottom: 12px; }
   .syn-q + .syn-q { margin-top: 16px; }
   .syn-ask { font-size: 14px; font-weight: 600; color: var(--fg); margin-bottom: 4px; }
   .syn-q ul { list-style: none; margin: 0; padding: 0; }
@@ -351,11 +350,12 @@
 
     <div class="actions">
       <section class="card synopsis" id="synopsis" hidden>
-        <span class="label">What I heard back</span>
+        <details>
+        <summary><span class="label">What I heard back</span></summary>
         <div id="synopsis-body"></div>
-        <p class="syn-note">These are your own sentences, lifted straight out of the
-          recordings on this page. Nothing was added, reworded, or guessed at — if a
-          line reads oddly, that’s the dictation, not me.</p>
+        <p class="syn-note">These are your own sentences, straight from the recordings.
+          Nothing added or reworded; an odd line is the dictation, not me.</p>
+        </details>
       </section>
 
       <button type="button" id="sendall" class="send" hidden>Text them to Todd</button>
@@ -1294,7 +1294,7 @@
     Object.keys(cards).forEach(function (id) {
       var t = typedText(id);
       if (!t) return;
-      var body = cards[id].q.ask.replace(/<[^>]+>/g, "") + "\n\n" + t + "\n";
+      var body = transcriptBody(id, t, "typed");
       out.push({ name: "cory-" + id + "-typed.txt", bytes: enc.encode(body) });
     });
     return out;
@@ -1359,7 +1359,7 @@
         var base = baseName(it.id, it.rec);
         var out = [{ name: base + "." + extFor(bareType(it.rec.clip.type)), bytes: bytes }];
         if (it.rec.clip.said) {
-          var body = cards[it.id].q.ask.replace(/<[^>]+>/g, "") + "\n\n" + it.rec.clip.said + "\n";
+          var body = transcriptBody(it.id, it.rec.clip.said, "said");
           out.push({ name: base + ".txt",
                      bytes: (window.TextEncoder ? new TextEncoder().encode(body)
                                                 : new Uint8Array(0)) });
@@ -1391,6 +1391,16 @@
   function baseName(id, rec) {
     return "cory-" + id + "-part" + (cards[id].clips.indexOf(rec) + 1);
   }
+  // Every transcript file says which question, how the words got there, and
+  // what they are worth: dictation is a draft, the recording is the record.
+  function transcriptBody(id, text, how) {
+    var ids = Object.keys(cards), i = ids.indexOf(id) + 1;
+    var ask = cards[id].q.ask.replace(/<[^>]+>/g, "");
+    return (i < 10 ? "0" : "") + i + " \u00b7 " + ask + "\n" +
+      (how === "typed" ? "Typed on the phone."
+                       : "Dictated on the phone as he spoke, unchecked. The recording is the record.") +
+      "\n\n" + text + "\n";
+  }
   function fileFor(id, rec) {
     var type = bareType(rec.clip.type) || "audio/mp4";
     var name = baseName(id, rec) + "." + extFor(type);
@@ -1401,8 +1411,7 @@
   // no pasting, and it survives being forwarded.
   function textFor(id, rec) {
     if (!rec.clip.said) return null;
-    var c = cards[id];
-    var body = c.q.ask.replace(/<[^>]+>/g, "") + "\n\n" + rec.clip.said + "\n";
+    var body = transcriptBody(id, rec.clip.said, "said");
     try { return new File([body], baseName(id, rec) + ".txt", { type: "text/plain" }); }
     catch (e) { return null; }
   }

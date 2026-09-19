@@ -60,11 +60,14 @@ await page.goto('http://localhost:8731/', { waitUntil: 'load' });
 // Record, open its row first, the way he would.
 const tap = async (pg, id, opts) => {
   const mic = pg.locator('#mic-' + id);
-  if (!(await mic.isVisible())) await pg.locator('article.q:has(#mic-' + id + ') summary').click();
+  if (!(await mic.isVisible())) {
+    await pg.locator('article.q:has(#mic-' + id + ') summary').click();
+    await pg.waitForTimeout(60);   // the toggle event that marks it open is queued, not sync
+  }
   await mic.click(opts);
 };
 const isOpen = (c) => c.evaluate((e) => e.classList.contains('open'));
-const open = async (c) => { if (!(await isOpen(c))) await c.locator('summary').click(); };
+const open = async (c) => { if (!(await isOpen(c))) { await c.locator('summary').click(); await page.waitForTimeout(60); } };
 const record = async (id, ms) => {
   await tap(page, id);
   await page.waitForTimeout(ms);
@@ -98,11 +101,13 @@ ok(!(await page.locator('#mic-q4').isVisible()) && !(await card(3).locator('.why
 ok(await card(3).locator('summary').evaluate((s) => s.getBoundingClientRect().height >= 44),
    'the closed row is a full-height tap target');
 await card(3).locator('summary').click();
+await page.waitForTimeout(60);
 ok((await isOpen(card(3))) && !(await isOpen(card(0))), 'opening another question closes the first');
 ok(await page.locator('#mic-q4').isVisible(), 'and shows its controls');
 ok(/you\u2019re on 04/.test(await page.locator('#next').textContent()),
    'the whisper follows him');
 await card(0).locator('summary').click();
+await page.waitForTimeout(60);
 ok((await isOpen(card(0))) && !(await isOpen(card(3))), 'and back again');
 // The fill leaves a closed button over 150ms; count accents once it has gone.
 await page.waitForTimeout(250);
@@ -634,6 +639,7 @@ ok(/Typed/.test(await tp.locator('article.q').first().locator('.qstate').textCon
    'the folded row says it holds a typed answer');
 ok(await isOpen(tp.locator('article.q').nth(1)), 'and the spotlight has moved on to the next');
 await tp.locator('article.q').first().locator('summary').click();
+await tp.waitForTimeout(60);
 ok(await tp.locator('#text-q1').isVisible(), 'opening it shows the box with his words');
 ok(!(await tp.locator('#restorefail').isVisible()),
    'a typed answer is never mistaken for a broken recording');
