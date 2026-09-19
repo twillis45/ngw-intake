@@ -56,8 +56,17 @@ page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
 page.on('dialog', (d) => d.accept());
 await page.goto('http://localhost:8731/', { waitUntil: 'load' });
 
+// Only the open question shows its controls. To press a closed question's
+// Record, open its row first, the way he would.
+const tap = async (pg, id, opts) => {
+  const mic = pg.locator('#mic-' + id);
+  if (!(await mic.isVisible())) await pg.locator('article.q:has(#mic-' + id + ') summary').click();
+  await mic.click(opts);
+};
+const isOpen = (c) => c.evaluate((e) => e.classList.contains('open'));
+const open = async (c) => { if (!(await isOpen(c))) await c.locator('summary').click(); };
 const record = async (id, ms) => {
-  await page.locator('#mic-' + id).click();
+  await tap(page, id);
   await page.waitForTimeout(ms);
   await page.locator('#mic-' + id).click();
   await page.waitForTimeout(900);
@@ -78,6 +87,29 @@ ok((await page.locator('article.q audio:visible').count()) === 0, 'no dead audio
 const nums = await page.locator('.qnum').allTextContents();
 ok(nums.join(',') === Array.from({ length: N }, (_, i) => String(i + 1).padStart(2, '0')).join(','),
    `margin numbers run 01..${N} in order`);
+
+console.log('\n=== attention: one open question, the rest an index ===');
+ok((await page.locator('article.q.open').count()) === 1 && await isOpen(card(0)),
+   'exactly one question is open at rest, and it is the first');
+ok(/Start with 01/.test(await page.locator('#next').textContent()),
+   'the whisper says where to start');
+ok(!(await page.locator('#mic-q4').isVisible()) && !(await card(3).locator('.why').isVisible()),
+   'a closed question shows its line and nothing else');
+ok(await card(3).locator('summary').evaluate((s) => s.getBoundingClientRect().height >= 44),
+   'the closed row is a full-height tap target');
+await card(3).locator('summary').click();
+ok((await isOpen(card(3))) && !(await isOpen(card(0))), 'opening another question closes the first');
+ok(await page.locator('#mic-q4').isVisible(), 'and shows its controls');
+ok(/you\u2019re on 04/.test(await page.locator('#next').textContent()),
+   'the whisper follows him');
+await card(0).locator('summary').click();
+ok((await isOpen(card(0))) && !(await isOpen(card(3))), 'and back again');
+// The fill leaves a closed button over 150ms; count accents once it has gone.
+await page.waitForTimeout(250);
+ok(await page.locator('#forward').evaluate((e) => !e.querySelector('details').open),
+   'the forward-first card folds to one line');
+ok(await page.locator('.how').evaluate((e) => e.querySelector('details').open),
+   'the how-to stays open while nothing has been answered');
 
 console.log('\n=== copy ===');
 const how = await page.locator('.how').textContent();
@@ -151,7 +183,7 @@ ok(await page.evaluate(() => {
    }), 'the priority lane is visually distinct from the main list');
 
 console.log('\n=== recording: the state machine ===');
-await page.locator('#mic-q1').click();
+await tap(page, 'q1');
 await page.waitForTimeout(700);
 ok((await page.locator('#mic-q1').textContent()) === 'Stop', 'button reads Stop while live');
 ok(await page.locator('#mic-q4').isDisabled(), 'other questions disabled while one records');
@@ -163,7 +195,7 @@ ok(await card(0).locator('.level').isVisible(), 'the level meter is up while rec
 ok(await card(0).locator('.level i').evaluate((e) => parseFloat(e.style.width) > 0),
    'the meter actually moves on the fake device');
 await page.waitForTimeout(900);
-await page.locator('#mic-q1').click();
+await tap(page, 'q1');
 await page.waitForTimeout(900);
 ok(!(await page.locator('#mic-q4').isDisabled()), 'others re-enabled after stop');
 ok(await card(0).locator('.keepon').isHidden(), 'line hidden again');
@@ -174,17 +206,18 @@ ok((await card(0).locator('.clip').count()) === 1, 'one clip filed');
 // The race the old build lost an answer to: start a second question while the
 // first is still live. The first must file, the second must be fully operable.
 console.log('\n=== the race: switching questions mid-recording ===');
-await page.locator('#mic-q2').click();
+await tap(page, 'q2');
 await page.waitForTimeout(800);
 // The guard is the fix: q5 is disabled, so the tap that used to silently end
 // q2's recording cannot land at all. Force it anyway to prove nothing happens.
 ok(await page.locator('#mic-q5').isDisabled(), 'q5 locked out while q2 holds the mic');
-await page.locator('#mic-q5').click({ force: true }).catch(() => {});
+await tap(page, 'q5', { force: true }).catch(() => {});
 await page.waitForTimeout(900);
 ok((await page.locator('#mic-q2').textContent()) === 'Stop', 'q2 still recording, not orphaned');
+ok(await isOpen(card(1)), 'a recording question is never folded away by opening another');
 const t = await card(1).locator('.time').first().textContent();
 ok(/^0:0[0-9]$/.test(t), `q2 timer still running (${t})`);
-await page.locator('#mic-q2').click();
+await tap(page, 'q2');
 await page.waitForTimeout(900);
 ok((await card(1).locator('.clip').count()) === 1, 'q2 filed its recording');
 ok((await page.locator('#mic-q2').textContent()) === 'Add another', 'q2 button recovered');
@@ -200,7 +233,7 @@ await page.evaluate(() => {
 await page.waitForTimeout(1600);
 ok((await page.locator('#mic-q3').textContent()) === 'Stop',
    'one recording started, not two');
-await page.locator('#mic-q3').click();
+await tap(page, 'q3');
 await page.waitForTimeout(1000);
 const q3clips = await card(2).locator('.clip').count();
 ok(q3clips === 1, `double-tap yields exactly one clip (got ${q3clips})`);
@@ -224,12 +257,19 @@ ok((await card(0).locator('.clip .part').first().textContent()) === 'Part 1', 's
 await page.reload({ waitUntil: 'load' });
 await page.waitForTimeout(1100);
 ok((await page.locator('#fig-answered').textContent()) === `3/${N}`, 'restored after reload');
+ok((await page.locator('article.q.open').count()) === 1 && !(await isOpen(card(0))) &&
+   await isOpen(card(3)),
+   'after reload the open question is the first one without an answer');
+ok(new RegExp(`3 of ${N} set`).test(await page.locator('#next').textContent()),
+   'and the whisper counts what is set');
+ok(await page.locator('.how').evaluate((e) => !e.querySelector('details').open),
+   'the how-to folds once he has started');
 ok(!(await page.locator('#restorefail').isVisible()), 'no false restore-failure banner');
 
 // The page warns that a screen lock can cut a recording off. Warning is not
 // handling — this is the handling.
 console.log('\n=== backgrounding files the answer instead of losing it ===');
-await page.locator('#mic-q6').click();
+await tap(page, 'q6');
 await page.waitForTimeout(1300);
 ok((await page.locator('#mic-q6').textContent()) === 'Stop', 'q6 is live');
 // Stand in for the signal iOS sends on lock or app switch. The handler reads
@@ -252,6 +292,7 @@ await page.evaluate(() => {
   Object.defineProperty(navigator, 'canShare', { value: () => true, configurable: true });
   Object.defineProperty(navigator, 'share', { value: () => Promise.resolve(), configurable: true });
 });
+await open(card(0));
 await card(0).locator('.clip').first().locator('button.send').click();
 await page.waitForTimeout(500);
 ok((await card(0).locator('.clip').first().locator('.flag').textContent()) === 'Handed off',
@@ -266,6 +307,7 @@ await page.evaluate(() => {
   Object.defineProperty(navigator, 'canShare', { value: undefined, configurable: true });
   Object.defineProperty(navigator, 'share', { value: undefined, configurable: true });
 });
+await open(card(1));
 await card(1).locator('.clip').first().locator('button.send').click();
 await page.waitForTimeout(600);
 ok((await card(1).locator('.clip').first().locator('.flag').textContent()) === 'Not sent',
@@ -345,13 +387,13 @@ const hp = await heard.newPage();
 await hp.goto('http://localhost:8731/', { waitUntil: 'load' });
 ok(!(await hp.locator('#dictation-note').isHidden()),
    'he is told his phone is writing it out, and where that text goes');
-await hp.locator('#mic-q1').click();
+await tap(hp, 'q1');
 await hp.waitForTimeout(1400);
 const liveEl = hp.locator('article.q').first().locator('.said.pending');
 ok(await liveEl.isVisible(), 'the words appear while the recording is still running');
 ok(/facility manager signs off/.test(await liveEl.textContent()),
    'and they are the words that were said');
-await hp.locator('#mic-q1').click();
+await tap(hp, 'q1');
 await hp.waitForTimeout(900);
 ok(await liveEl.isHidden(), 'the live block clears once the clip is filed');
 const filed = hp.locator('article.q').first().locator('.clip .said');
@@ -390,9 +432,9 @@ await dup.addInitScript(() => {
 });
 const dupPage = await dup.newPage();
 await dupPage.goto('http://localhost:8731/', { waitUntil: 'load' });
-await dupPage.locator('#mic-q1').click();
+await tap(dupPage, 'q1');
 await dupPage.waitForTimeout(2000);
-await dupPage.locator('#mic-q1').click();
+await tap(dupPage, 'q1');
 await dupPage.waitForTimeout(1000);
 const filedText = (await dupPage.locator('.clip .said').first().textContent()).trim();
 ok(filedText === 'Alpha one. Bravo two. Charlie three.',
@@ -461,13 +503,13 @@ const dctx = await deaf.newContext({ permissions: ['microphone'],
   viewport: { width: 390, height: 844 } });
 const dp2 = await dctx.newPage();
 await dp2.goto('http://localhost:8731/', { waitUntil: 'load' });
-await dp2.locator('#mic-q1').click();
+await tap(dp2, 'q1');
 await dp2.waitForTimeout(5200);
 const warned = await dp2.locator('article.q').first().locator('.err:visible, .note:visible').first();
 const liveWarn = await warned.count() ? await warned.textContent() : '';
 ok(/isn\u2019t picking anything up|picking anything up/.test(liveWarn),
    'it says so within a few seconds, not after twenty minutes');
-await dp2.locator('#mic-q1').click();
+await tap(dp2, 'q1');
 await dp2.waitForTimeout(1200);
 ok((await dp2.locator('article.q').first().locator('.clip').count()) === 1,
    'the recording is still kept — his call, not mine');
@@ -486,11 +528,11 @@ const heard2 = await browser.newContext({ permissions: ['microphone'],
   viewport: { width: 390, height: 844 } });
 const hp2 = await heard2.newPage();
 await hp2.goto('http://localhost:8731/', { waitUntil: 'load' });
-await hp2.locator('#mic-q1').click();
+await tap(hp2, 'q1');
 await hp2.waitForTimeout(5200);
 const noFalse = await hp2.locator('article.q').first().locator('.err:visible').count();
 ok(noFalse === 0, 'no silence warning while the microphone is working');
-await hp2.locator('#mic-q1').click();
+await tap(hp2, 'q1');
 await hp2.waitForTimeout(1200);
 ok((await hp2.locator('article.q').first().locator('.clip .note').count()) === 0,
    'and the clip is not marked empty');
@@ -503,9 +545,9 @@ const bit = await browser.newContext({ permissions: ['microphone'],
   viewport: { width: 390, height: 844 } });
 const bp = await bit.newPage();
 await bp.goto('http://localhost:8731/', { waitUntil: 'load' });
-await bp.locator('#mic-q1').click();
+await tap(bp, 'q1');
 await bp.waitForTimeout(6000);
-await bp.locator('#mic-q1').click();
+await tap(bp, 'q1');
 await bp.waitForTimeout(1200);
 const weight = await bp.evaluate(async () => {
   const a = document.querySelector('article.q audio');
@@ -546,9 +588,9 @@ await big.addInitScript(() => {
 });
 const gp = await big.newPage();
 await gp.goto('http://localhost:8731/', { waitUntil: 'load' });
-await gp.locator('#mic-q1').click();
+await tap(gp, 'q1');
 await gp.waitForTimeout(1200);
-await gp.locator('#mic-q1').click();
+await tap(gp, 'q1');
 await gp.waitForTimeout(1400);
 const warn = gp.locator('#sizewarn');
 ok(await warn.isVisible(), 'a bundle too big for a text message says so');
@@ -588,7 +630,11 @@ ok(/typed answer/.test(await tp.locator('#tally').textContent()),
 await tp.reload({ waitUntil: 'load' });
 await tp.waitForTimeout(1300);
 ok((await tp.locator('#text-q1').inputValue()) === ANSWER, 'it survives closing the page');
-ok(await tp.locator('#text-q1').isVisible(), 'and the box is open again so he can see it');
+ok(/Typed/.test(await tp.locator('article.q').first().locator('.qstate').textContent()),
+   'the folded row says it holds a typed answer');
+ok(await isOpen(tp.locator('article.q').nth(1)), 'and the spotlight has moved on to the next');
+await tp.locator('article.q').first().locator('summary').click();
+ok(await tp.locator('#text-q1').isVisible(), 'opening it shows the box with his words');
 ok(!(await tp.locator('#restorefail').isVisible()),
    'a typed answer is never mistaken for a broken recording');
 
@@ -636,9 +682,9 @@ await noshare.addInitScript(() => {
 const np2 = await noshare.newPage();
 await np2.goto('http://localhost:8731/', { waitUntil: 'load' });
 for (const q of ['q1', 'q4']) {
-  await np2.locator('#mic-' + q).click();
+  await tap(np2, q);
   await np2.waitForTimeout(1100);
-  await np2.locator('#mic-' + q).click();
+  await tap(np2, q);
   await np2.waitForTimeout(800);
 }
 ok(!(await np2.locator('#sendall').isVisible()),
@@ -704,9 +750,9 @@ await yesshare.addInitScript(() => {
 });
 const yp = await yesshare.newPage();
 await yp.goto('http://localhost:8731/', { waitUntil: 'load' });
-await yp.locator('#mic-q1').click();
+await tap(yp, 'q1');
 await yp.waitForTimeout(1100);
-await yp.locator('#mic-q1').click();
+await tap(yp, 'q1');
 await yp.waitForTimeout(800);
 ok(await yp.locator('#sendall').isVisible(), 'the share route leads where it exists');
 ok(await yp.locator('#downloadall').evaluate((e) => e.className === 'second'),
@@ -725,9 +771,9 @@ await mp.addInitScript(() => {
   Object.defineProperty(navigator, 'share', { value: () => Promise.resolve(), configurable: true });
 });
 await mp.goto('http://localhost:8731/', { waitUntil: 'load' });
-await mp.locator('#mic-q1').click();
+await tap(mp, 'q1');
 await mp.waitForTimeout(1100);
-await mp.locator('#mic-q1').click();
+await tap(mp, 'q1');
 await mp.waitForTimeout(900);
 const recorded = await mp.evaluate(() => document.querySelector('article.q audio') ? true : false);
 ok(recorded, 'a clip exists to share');
@@ -760,11 +806,11 @@ await spin.addInitScript(() => {
 });
 const sp = await spin.newPage();
 await sp.goto('http://localhost:8731/', { waitUntil: 'load' });
-await sp.locator('#mic-q1').click();
+await tap(sp, 'q1');
 await sp.waitForTimeout(4000);
 const starts = await sp.evaluate(() => window.__starts);
 ok(starts <= 5, `a recogniser that always fails is retried a few times, not thousands (${starts})`);
-await sp.locator('#mic-q1').click();
+await tap(sp, 'q1');
 await sp.waitForTimeout(900);
 ok((await sp.locator('article.q').first().locator('.clip').count()) === 1,
    'and the recording it was riding alongside still files');
@@ -791,11 +837,11 @@ await denied.addInitScript(() => {
 });
 const dn = await denied.newPage();
 await dn.goto('http://localhost:8731/', { waitUntil: 'load' });
-await dn.locator('#mic-q1').click();
+await tap(dn, 'q1');
 await dn.waitForTimeout(2500);
 ok((await dn.evaluate(() => window.__starts)) === 1,
    `a declined microphone is asked for exactly once (${await dn.evaluate(() => window.__starts)})`);
-await dn.locator('#mic-q1').click();
+await tap(dn, 'q1');
 await dn.waitForTimeout(900);
 ok((await dn.locator('article.q').first().locator('.clip').count()) === 1,
    'and the recording is unaffected by the refusal');
@@ -887,12 +933,12 @@ const qc = await quiet.newContext({ permissions: ['microphone'],
   viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
 const qp = await qc.newPage();
 await qp.goto('http://localhost:8731/', { waitUntil: 'load' });
-await qp.locator('#mic-q1').click();
+await tap(qp, 'q1');
 await qp.waitForTimeout(1800);
 ok(await qp.locator('.level').first().isVisible(), 'the meter is still up on a silent mic');
 ok(await qp.locator('.level i').first().evaluate((e) => parseFloat(e.style.width) === 0),
    'and reads flat, so a moving bar is real evidence');
-await qp.locator('#mic-q1').click();
+await tap(qp, 'q1');
 await qp.waitForTimeout(900);
 ok((await qp.locator('article.q').first().locator('.clip').count()) === 1,
    'a silent recording still files — the meter reports, it does not gate');

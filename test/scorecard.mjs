@@ -190,6 +190,10 @@ check('3.9', 'Desktop density: no void region wider than 320px', voids.length ==
 const taps = await page.evaluate(() => [...document.querySelectorAll('button')]
   .filter((b) => b.offsetParent !== null && b.getBoundingClientRect().height < 44).length);
 check('3.4', 'Touch targets minimum 44px', taps === 0, `${taps} under 44px`);
+// Folded rows are tapped as often as buttons, so they meet the same floor.
+const heads = await page.evaluate(() => [...document.querySelectorAll('summary')]
+  .filter((s) => s.offsetParent !== null && s.getBoundingClientRect().height < 44).length);
+check('3.4d', 'Disclosure rows are tappable at 44px', heads === 0, `${heads} under 44px`);
 
 // The sms links are the escape hatch — the thing he reaches for when something
 // has gone wrong — and as bare inline text they measured 89x15px.
@@ -275,7 +279,9 @@ const busy = await browser.newContext({ viewport: { width: 390, height: 844 },
 const bp = await busy.newPage();
 await bp.goto('http://localhost:8735/', { waitUntil: 'load' });
 for (const q of ['q1', 'q1', 'q4']) {
-  await bp.locator('#mic-' + q).click();
+  const mic = bp.locator('#mic-' + q);
+  if (!(await mic.isVisible())) await bp.locator('article.q:has(#mic-' + q + ') summary').click();
+  await mic.click();
   await bp.waitForTimeout(900);
   await bp.locator('#mic-' + q).click();
   await bp.waitForTimeout(700);
