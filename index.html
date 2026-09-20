@@ -1485,11 +1485,18 @@
     whisper();
     var typedCount = ids.filter(function (i) { return !!typedText(i); }).length;
     var pending = allClips().length;
+    // "Saved to phone" is not "sent": a zip in his Downloads has not reached
+    // anyone. The line says which of the two he is looking at.
+    var onlyLocal = ids.every(function (i) {
+      return cards[i].clips.every(function (r) { return r.clip.sent !== "shared"; });
+    });
     // UX_06: a status says what it means for him, not just its own number.
     document.getElementById("tally").textContent =
       total === 0 && typedCount ? typedCount + " typed answer" + (typedCount === 1 ? "" : "s") +
         " saved on this device, ready to send."
       : total === 0 ? "Nothing recorded or typed on this page yet."
+      : pending === 0 && onlyLocal ? "Everything is in one file on this phone. It still has to reach Todd: " +
+        "the drop box, or a text."
       : pending === 0 ? "Everything recorded here has been handed off."
       : pending + (pending === 1 ? " recording" : " recordings") + " still to send.";
     var sa = document.getElementById("sendall");

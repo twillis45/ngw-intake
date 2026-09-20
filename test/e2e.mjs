@@ -641,6 +641,8 @@ ok((await dlink.getAttribute('target')) === '_blank' && /noopener/.test(await dl
 ok(await dlink.evaluate((a) => a.getBoundingClientRect().height >= 44), 'the link taps like a button');
 ok(/Saved to phone/.test(await xp.locator('article.q').first().locator('.clip .flag').first().textContent()),
    'the clip is marked saved to phone, never as sent');
+ok(/still has to reach Todd/.test(await xp.locator('#tally').textContent()),
+   'and the tally says the file has not reached anyone yet');
 ok((await xp.locator('#dropbox-link-2').getAttribute('href')) === 'https://www.dropbox.com/request/mthmpmq4pc6s85pg8pea',
    'the Voice Memos route in the how-to points at the same drop box');
 await dbx.close();
