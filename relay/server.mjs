@@ -141,6 +141,33 @@ export const server = http.createServer(async (req, res) => {
     send(res, out.ok ? 200 : 503, out);
     return;
   }
+  // One-time: trade an authorization code for the refresh token, so the
+  // setup needs no Node on anyone's machine. Passcode-gated, never logged,
+  // shown once to the browser that asked. Paste the result into Render.
+  if (req.method === "GET" && url.pathname === "/exchange") {
+    if (!env.DROPBOX_APP_KEY || !env.DROPBOX_APP_SECRET) { send(res, 503, { ok: false, error: "relay-unconfigured" }); return; }
+    if (!same(url.searchParams.get("k") || "", PASSCODE)) { send(res, 403, { ok: false, error: "passcode" }); return; }
+    const code = (url.searchParams.get("code") || "").trim();
+    if (!code) { send(res, 400, { ok: false, error: "code" }); return; }
+    try {
+      const r = await fetch(OAUTH_BASE + "/oauth2/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ code, grant_type: "authorization_code",
+                                    client_id: env.DROPBOX_APP_KEY, client_secret: env.DROPBOX_APP_SECRET }).toString(),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.refresh_token) {
+        send(res, 400, { ok: false, error: j.error_description || j.error || ("dropbox " + r.status) });
+        return;
+      }
+      send(res, 200, { ok: true, refresh_token: j.refresh_token,
+                       next: "Paste refresh_token into Render as DROPBOX_REFRESH_TOKEN, save, then open /health?check=1." });
+    } catch (e) {
+      send(res, 502, { ok: false, error: "dropbox" });
+    }
+    return;
+  }
   if (req.method !== "POST" || url.pathname !== "/upload") { send(res, 404, { ok: false, error: "no" }); return; }
   if (missing.length) { send(res, 503, { ok: false, error: "relay-unconfigured", missing }); return; }
   if (origin !== ORIGIN) { send(res, 403, { ok: false, error: "origin" }); return; }

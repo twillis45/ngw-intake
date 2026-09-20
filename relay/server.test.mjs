@@ -16,6 +16,11 @@ const fake = http.createServer(async (req, res) => {
                form: req.headers["content-type"] === "application/x-www-form-urlencoded" ? body.toString() : null });
   const j = (o) => { res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify(o)); };
   if (req.url === "/oauth2/token") {
+    if (/grant_type=authorization_code/.test(body.toString())) {
+      if (/code=GOOD/.test(body.toString())) return j({ access_token: "AT-x", refresh_token: "RT-" + "x".repeat(60), expires_in: 14400 });
+      res.writeHead(400, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ error: "invalid_grant", error_description: "code has expired" }));
+    }
     if (/refresh_token=BAD/.test(body.toString())) {
       res.writeHead(400, { "Content-Type": "application/json" });
       return res.end(JSON.stringify({ error: "invalid_grant", error_description: "refresh token is not valid" }));
@@ -128,6 +133,17 @@ test("the health check can try the token and report Dropbox's reason, and secret
   assert.equal(r.status, 503);
   assert.match(j.dropboxAuth, /^dropbox-auth 400 refresh token is not valid/);
   assert.equal(j.appKeyEndsWith, "k", "whitespace around a secret is trimmed");
+});
+
+test("the exchange turns a code into a refresh token, behind the passcode", async () => {
+  const noKey = await fetch(RELAY + "/exchange?code=GOOD");
+  assert.equal(noKey.status, 403);
+  const bad = await (await fetch(RELAY + "/exchange?k=open-sesame&code=STALE")).json();
+  assert.equal(bad.ok, false);
+  assert.equal(bad.error, "code has expired");
+  const good = await (await fetch(RELAY + "/exchange?k=open-sesame&code=GOOD")).json();
+  assert.equal(good.ok, true);
+  assert.match(good.refresh_token, /^RT-x{60}$/);
 });
 
 test.after(() => { relay.kill(); fake.close(); });

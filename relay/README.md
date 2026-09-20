@@ -21,13 +21,19 @@ a fake Dropbox.
    ```
 
    Approve. Copy the code it shows.
-3. **Refresh token.** On your own machine:
+3. **Refresh token.** Once the relay is deployed with the app key, secret
+   and passcode (step 4 can come first; the refresh token can be filled in
+   after), open in a browser, within a few minutes of getting the code:
+
+   ```
+   https://ngw-intake-relay.onrender.com/exchange?k=PASSCODE&code=CODE
+   ```
+
+   It answers with `refresh_token`, once. Or, on your own machine:
 
    ```
    node relay/get-refresh-token.mjs APP_KEY APP_SECRET CODE
    ```
-
-   It prints the refresh token once.
 4. **Render.** New → Blueprint, pick this repo; Render reads `render.yaml`.
    It asks for the four secrets: the app key, the app secret, the refresh
    token, and a passcode you invent (any long phrase; it goes in the link
