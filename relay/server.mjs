@@ -8,7 +8,9 @@
 import http from "node:http";
 import crypto from "node:crypto";
 
-const env = process.env;
+// Secrets pasted into a dashboard arrive with stray whitespace often enough
+// that Dropbox's "invalid_grant" is usually a newline. Trim everything.
+const env = Object.fromEntries(Object.entries(process.env).map(([k, v]) => [k, String(v ?? "").trim()]));
 const PORT = Number(env.PORT) || 10000;
 const ORIGIN = env.ALLOWED_ORIGIN || "https://twillis45.github.io";
 const FOLDER = (env.DROPBOX_FOLDER || "/Cory outreach recordings").replace(/\/+$/, "");
@@ -38,7 +40,11 @@ async function accessToken() {
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: body.toString(),
   });
-  if (!r.ok) throw new Error("dropbox-auth " + r.status + " " + (await r.text()).slice(0, 200));
+  if (!r.ok) {
+    let why = (await r.text()).slice(0, 300);
+    try { const j = JSON.parse(why); why = j.error_description || j.error || why; } catch {}
+    throw new Error("dropbox-auth " + r.status + " " + why);
+  }
   const j = await r.json();
   cached = { token: j.access_token, exp: Date.now() + (Number(j.expires_in) || 14400) * 1000 };
   return cached.token;
@@ -123,7 +129,16 @@ export const server = http.createServer(async (req, res) => {
 
   if (req.method === "OPTIONS") { res.writeHead(204); res.end(); return; }
   if (req.method === "GET" && url.pathname === "/health") {
-    send(res, missing.length ? 503 : 200, { ok: !missing.length, missing });
+    // ?check=1 also tries the token refresh and reports Dropbox's own words on
+    // failure. Nothing secret comes back: the app key's tail so a mix-up shows,
+    // and Dropbox's error text, which names the wrong thing without quoting it.
+    const out = { ok: !missing.length, missing, appKeyEndsWith: (env.DROPBOX_APP_KEY || "").slice(-4),
+                  refreshTokenLength: (env.DROPBOX_REFRESH_TOKEN || "").length };
+    if (url.searchParams.get("check") === "1" && !missing.length) {
+      try { await accessToken(); out.dropboxAuth = "ok"; }
+      catch (e) { out.ok = false; out.dropboxAuth = String(e.message || e); }
+    }
+    send(res, out.ok ? 200 : 503, out);
     return;
   }
   if (req.method !== "POST" || url.pathname !== "/upload") { send(res, 404, { ok: false, error: "no" }); return; }

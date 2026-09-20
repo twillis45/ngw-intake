@@ -15,7 +15,13 @@ const fake = http.createServer(async (req, res) => {
   calls.push({ url: req.url, auth: req.headers.authorization, arg: req.headers["dropbox-api-arg"], len: body.length,
                form: req.headers["content-type"] === "application/x-www-form-urlencoded" ? body.toString() : null });
   const j = (o) => { res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify(o)); };
-  if (req.url === "/oauth2/token") return j({ access_token: "AT-1", expires_in: 14400 });
+  if (req.url === "/oauth2/token") {
+    if (/refresh_token=BAD/.test(body.toString())) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ error: "invalid_grant", error_description: "refresh token is not valid" }));
+    }
+    return j({ access_token: "AT-1", expires_in: 14400 });
+  }
   if (req.url === "/2/files/upload") {
     const a = JSON.parse(req.headers["dropbox-api-arg"]);
     return j({ name: a.path.split("/").pop(), path_display: a.path, size: body.length });
@@ -102,6 +108,26 @@ test("the file name is sanitized, never a path", async () => {
   const j = await r.json();
   assert.equal(r.status, 200);
   assert.match(j.path, /\/Cory outreach recordings\/\d{8}T\d{6}Z-......etc-passwd-zip$/);
+});
+
+test("the health check can try the token and report Dropbox's reason, and secrets are trimmed", async () => {
+  const h = await (await fetch(RELAY + "/health?check=1")).json();
+  assert.equal(h.dropboxAuth, "ok");
+  assert.equal(h.appKeyEndsWith, "k");
+  // A second relay with a bad token and a padded key: the key still works, the token's rejection is named.
+  const PORT2 = PORT + 1;
+  const bad = spawn(process.execPath, [fileURLToPath(new URL("./server.mjs", import.meta.url))], {
+    env: { ...process.env, PORT: String(PORT2), DROPBOX_APP_KEY: "  k\n", DROPBOX_APP_SECRET: "s",
+           DROPBOX_REFRESH_TOKEN: "BAD", RELAY_PASSCODE: "x", DROPBOX_OAUTH_BASE: FAKE, DROPBOX_CONTENT_BASE: FAKE },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  for (let i = 0; i < 50; i++) { try { if ((await fetch("http://127.0.0.1:" + PORT2 + "/health")).ok) break; } catch {} await new Promise((r) => setTimeout(r, 100)); }
+  const r = await fetch("http://127.0.0.1:" + PORT2 + "/health?check=1");
+  const j = await r.json();
+  bad.kill();
+  assert.equal(r.status, 503);
+  assert.match(j.dropboxAuth, /^dropbox-auth 400 refresh token is not valid/);
+  assert.equal(j.appKeyEndsWith, "k", "whitespace around a secret is trimmed");
 });
 
 test.after(() => { relay.kill(); fake.close(); });
