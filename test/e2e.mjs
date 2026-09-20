@@ -156,7 +156,7 @@ ok(/on this page, in this browser/.test(tallynote), 'and that it only counts thi
 const standing = page.locator('#standing');
 ok(await standing.isVisible(), 'the standing line is up without scrolling');
 const stand = await standing.textContent();
-ok(/Voice Memos/.test(stand) && /432-5650/.test(stand), 'it carries the whole instruction');
+ok(/Text it to/.test(stand) && /432-5650/.test(stand), 'it carries the whole instruction: the number');
 await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
 await page.waitForTimeout(250);
 ok(await standing.isVisible(), 'and is still up at the bottom of the page');
@@ -741,18 +741,21 @@ const dbx = await browser.newContext({ permissions: ['microphone'],
   viewport: { width: 390, height: 844 }, acceptDownloads: true });
 const xp = await dbx.newPage();
 await xp.goto('http://localhost:8731/', { waitUntil: 'load' });
-ok(await xp.locator('#dropbox').isHidden(), 'no drop-box button before there is anything to send');
-ok(await xp.locator('#dropbox-step').isHidden(), 'and no step card');
+ok(await xp.locator('#dropbox').isVisible() && await xp.locator('#dropbox').isDisabled(),
+   'the Dropbox button is on the page from the start, disabled until there is something to send');
+ok(await xp.locator('#dropbox-step').isVisible() && /Voice Memos/.test(await xp.locator('#dropbox-how').textContent()) &&
+   await xp.locator('#dropbox-link').isVisible(),
+   'and the drop-box card, its Voice Memos instruction and its link are open from the start');
 await tap(xp, 'q1');
 await xp.waitForTimeout(1100);
 await tap(xp, 'q1');
 await xp.waitForTimeout(800);
-ok(await xp.locator('#dropbox').isVisible(), 'the drop-box button appears with the first answer');
+ok(!(await xp.locator('#dropbox').isDisabled()), 'the drop-box button enables with the first answer');
 ok(/^Save/.test((await xp.locator('#dropbox').textContent()).trim()), 'and its label is a verb');
 const [xzip] = await Promise.all([xp.waitForEvent('download'), xp.locator('#dropbox').click()]);
 ok(xzip.suggestedFilename() === 'cory-outreach-answers.zip', 'it saves the same zip to the phone first');
 await xp.waitForTimeout(400);
-ok(await xp.locator('#dropbox-step').isVisible(), 'then shows the one-more-tap card');
+ok(/saved on this phone as/.test(await xp.locator('#dropbox-how').textContent()), 'then the card says where the file is and what to do');
 const dlink = xp.locator('#dropbox-link');
 ok((await dlink.getAttribute('href')) === 'https://www.dropbox.com/request/mthmpmq4pc6s85pg8pea',
    'the card links to the file request, not a Dropbox login');
@@ -792,7 +795,7 @@ const up = relayHits.find((h) => h.url.startsWith('/upload'));
 ok(!!up && up.code === 'open-sesame' && up.len > 0, 'the zip is posted to the relay with the passcode');
 ok(/name=cory-outreach-answers\.zip/.test(up ? up.url : ''), 'named for what it is');
 ok(rpDownloads === 0, 'nothing is downloaded when the relay takes it');
-ok(await rp.locator('#dropbox-step').isHidden(), 'and no one-more-tap card is shown');
+ok(!/saved on this phone/.test(await rp.locator('#dropbox-how').textContent()), 'and the card does not send him to the drop box');
 ok(/Landed in Todd\u2019s Dropbox as 20260920T050000Z-cory-outreach-answers\.zip/.test(await rp.locator('#sendall-err').textContent()),
    'the receipt names the file as it landed');
 ok((await rp.locator('article.q').first().locator('.clip .flag').first().textContent()) === 'In Todd\u2019s Dropbox',
@@ -813,7 +816,7 @@ await tap(rp, 'q3'); await rp.waitForTimeout(1100); await tap(rp, 'q3'); await r
 const [fzip] = await Promise.all([rp.waitForEvent('download'), rp.locator('#dropbox').click()]);
 await rp.waitForTimeout(600);
 ok(fzip.suggestedFilename() === 'cory-outreach-answers.zip', 'when the relay fails the zip is saved on the phone instead');
-ok(await rp.locator('#dropbox-step').isVisible(), 'and the one-more-tap card takes over');
+ok(/saved on this phone as/.test(await rp.locator('#dropbox-how').textContent()), 'and the drop-box card takes over');
 ok(/relay dropbox, so the file is saved on this phone instead/.test(await rp.locator('#sendall-err').textContent()),
    'with the reason, in words');
 ok(/last try failed \(dropbox\)/.test(await rp.locator('#relay-state').textContent()),
@@ -888,9 +891,9 @@ ok((await mp2.locator('#fig-answered').textContent()) === `0/${N}` &&
    !(await c0.evaluate((e) => e.classList.contains('has-rec'))),
    'the ledger, the button, the folded-row state and the card all say unanswered');
 ok(/Start with 01/.test(await mp2.locator('#next').textContent()), 'the whisper points back at it');
-ok(await mp2.locator('#dropbox').isHidden() && await mp2.locator('#downloadall').isHidden() &&
-   await mp2.locator('#sendall-err').isHidden(),
-   'nothing is offered for sending, and no stale note about sending remains');
+ok(await mp2.locator('#dropbox').isDisabled() && await mp2.locator('#downloadall').isHidden() &&
+   await mp2.locator('#sendall-err').isHidden() && /Voice Memos/.test(await mp2.locator('#dropbox-how').textContent()),
+   'nothing is offered for sending, no stale note remains, and the drop-box card is back to its plain state');
 ok((await keys()).length === 0, 'and the store is empty, not just the screen');
 // Do-over: record again after deleting. One take, one key, and a reload agrees.
 await tap(mp2, 'q1'); await mp2.waitForTimeout(1100); await tap(mp2, 'q1'); await mp2.waitForTimeout(800);

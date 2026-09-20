@@ -317,7 +317,8 @@
       <div class="fig"><span class="n" id="fig-answered">0/22</span><span class="label">Answered</span></div>
       <div class="fig"><span class="n" id="fig-clips">0</span><span class="label">Recordings</span></div>
     </div>
-    <p class="whisper" id="next">Start with 01. Any order works.</p>
+    <p class="whisper" id="next">Start with 01, or tap any question to open it.</p>
+    <p class="whisper" id="relay-state" aria-live="polite"></p>
 
     <section class="card fwd" id="forward">
       <details>
@@ -355,14 +356,13 @@
     <div class="actions">
       <button type="button" id="sendall" class="send" hidden>Text them to Todd</button>
       <button type="button" id="downloadall" class="second" hidden>Save them all as one file</button>
-      <button type="button" id="dropbox" class="second" hidden>Save them all to Todd’s Dropbox</button>
-      <p class="tallynote" id="relay-state" aria-live="polite"></p>
+      <button type="button" id="dropbox" class="second" disabled>Save them all to Todd’s Dropbox</button>
       <div class="err" id="sendall-err" hidden></div>
-      <section class="card step" id="dropbox-step" hidden>
-        <span class="label">One more tap</span>
-        <p>The file is saved on this phone as <b>cory-outreach-answers.zip</b>, in
-          Files under Downloads. Todd’s drop box takes any size, no account needed:
-          open it, tap <b>Add files</b>, pick the zip.</p>
+      <section class="card step" id="dropbox-step">
+        <span class="label">Getting it to Todd</span>
+        <p id="dropbox-how">Done for now? Tap the Dropbox button above and everything on this
+          page goes straight to Todd. Recorded in <b>Voice Memos</b>? Share the clip,
+          <b>Save to Files</b>, then drop it in his drop box below. No account, any size.</p>
         <a class="linkbtn" id="dropbox-link" href="#" target="_blank" rel="noopener">Open Todd’s drop box</a>
       </section>
       <p class="note" id="sizewarn" hidden></p>
@@ -382,7 +382,7 @@
       <p class="lead">Talk it through or write it down. I’ll sort out what
         goes where.</p>
       <ul>
-        <li>Tap <b>Record</b> on any question, or open <b>Voice Memos</b> and talk. Any order.</li>
+        <li>Tap a question to open it, then <b>Record</b>. Or open <b>Voice Memos</b> and talk. Any order.</li>
         <li>No names, no numbers, no labeling</li>
         <li>Rather write? Every question has a <b>Type it instead</b> box</li>
       </ul>
@@ -406,7 +406,7 @@
 </div>
 
 <div class="standing" id="standing">
-  <b>Voice Memos</b> &rarr; text it to
+  Text it to
   <a href="sms:+12404325650">(240)&nbsp;432-5650</a>
 </div>
 
@@ -785,7 +785,7 @@
     var n = function (k) { var i = ids.indexOf(k) + 1; return (i < 10 ? "0" : "") + i; };
     document.getElementById("next").textContent =
       done === ids.length ? "All " + ids.length + " set. Text them to Todd."
-      : done === 0 && o === next ? "Start with " + n(next) + ". Any order works."
+      : done === 0 && o === next ? "Start with " + n(next) + ", or tap any question to open it."
       : done + " of " + ids.length + " set \u00b7 " +
         (o && !isAnswered(o) ? "you\u2019re on " + n(o) : "next " + n(next));
   }
@@ -1391,7 +1391,7 @@
 
   function downloadEverything() {
     var errEl = document.getElementById("sendall-err");
-    document.getElementById("dropbox-step").hidden = true;
+    dropboxHow("");
     var job = packEverything();
     if (!job) return;
     job.then(function (r) {
@@ -1407,12 +1407,18 @@
   // The drop-box route without a relay: the same zip, saved to the phone,
   // then one tap into Todd's Dropbox. The step card stays up until he sends
   // again, so switching apps and back does not lose it.
+  var DROPBOX_HOW_DEFAULT = document.getElementById("dropbox-how").innerHTML;
+  function dropboxHow(html) {
+    document.getElementById("dropbox-how").innerHTML = html || DROPBOX_HOW_DEFAULT;
+  }
   function saveAndPoint(r, errEl, step) {
     keepOnPhone(r);
     errEl.className = "note";
     errEl.textContent = "Saved one file with " + r.entries.length + " item" +
       (r.entries.length === 1 ? "" : "s") + " in it. Now the tap below.";
-    step.hidden = false;
+    dropboxHow("The file is saved on this phone as <b>cory-outreach-answers.zip</b>, in Files " +
+               "under Downloads. Open Todd\u2019s drop box, tap <b>Add files</b>, pick the zip. " +
+               "No account, any size.");
     step.scrollIntoView({ block: "nearest" });
   }
   // The relay route: the zip goes straight to Todd's Dropbox and the relay
@@ -1445,7 +1451,7 @@
   function toDropbox() {
     var errEl = document.getElementById("sendall-err");
     var step = document.getElementById("dropbox-step");
-    step.hidden = true;
+    dropboxHow("");
     var job = packEverything();
     if (!job) return;
     job.then(function (r) {
@@ -1664,9 +1670,9 @@
     // Nothing left to send means nothing left to say about sending.
     if (!any) {
       document.getElementById("sendall-err").hidden = true;
-      document.getElementById("dropbox-step").hidden = true;
+      dropboxHow("");
     }
-    db.hidden = !any;
+    db.disabled = !any;
     sa.hidden = pending === 0 || !canShareFiles;
     sa.textContent = pending === 1 ? "Text it to Todd" : "Text all " + pending + " to Todd";
     dl.hidden = !any;
