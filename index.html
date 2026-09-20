@@ -356,6 +356,7 @@
       <button type="button" id="sendall" class="send" hidden>Text them to Todd</button>
       <button type="button" id="downloadall" class="second" hidden>Save them all as one file</button>
       <button type="button" id="dropbox" class="second" hidden>Save them all to Todd’s Dropbox</button>
+      <p class="tallynote" id="relay-state" aria-live="polite"></p>
       <div class="err" id="sendall-err" hidden></div>
       <section class="card step" id="dropbox-step" hidden>
         <span class="label">One more tap</span>
@@ -429,10 +430,35 @@
     return k;
   })();
   var relayOn = !!relayKey;
-  // A free Render service sleeps after fifteen idle minutes and takes up to
-  // a minute to wake. Wake it while he is still reading the first question.
-  if (relayOn && window.fetch) {
-    try { fetch(RELAY_URL + "/health", { mode: "cors" }).catch(function () {}); } catch (e) {}
+  // The page says which route the Dropbox button will take, and why, before
+  // he taps it. A route that fails silently reads as a page that is broken.
+  var relayState = document.getElementById("relay-state");
+  function sayRelay(text) { relayState.textContent = text; relayState.hidden = !text; }
+  if (!relayOn) {
+    sayRelay("One-tap upload is off on this link: it carries no code. The Dropbox button will " +
+             "save a file for you to drop in instead. Todd can send a link that uploads on its own.");
+  } else if (!window.fetch || !window.XMLHttpRequest) {
+    sayRelay("One-tap upload needs a newer browser; the Dropbox button will save a file instead.");
+  } else {
+    // A free Render service sleeps after fifteen idle minutes and takes up
+    // to a minute to wake. Wake it while he is still reading the first
+    // question, and report what it said.
+    sayRelay("One-tap upload: reaching Todd\u2019s relay\u2026");
+    try {
+      fetch(RELAY_URL + "/health", { mode: "cors" }).then(function (r) {
+        return r.json().then(function (j) {
+          if (r.ok && j && j.ok) sayRelay("One-tap upload: ready.");
+          else sayRelay("One-tap upload: Todd\u2019s relay is not set up" +
+                        (j && j.missing && j.missing.length ? " (" + j.missing.join(", ") + " missing)" : "") +
+                        ". The Dropbox button will save a file instead.");
+        });
+      }).catch(function () {
+        sayRelay("One-tap upload: Todd\u2019s relay didn\u2019t answer. The Dropbox button will try " +
+                 "once more when you tap it, and save a file if it still can\u2019t.");
+      });
+    } catch (e) {
+      sayRelay("One-tap upload: Todd\u2019s relay didn\u2019t answer. The Dropbox button will save a file instead.");
+    }
   }
   ["dropbox-link", "dropbox-link-2"].forEach(function (id) {
     document.getElementById(id).href = DROPBOX_REQUEST;
@@ -1432,10 +1458,13 @@
         typedFiles(false).forEach(function (t) { markTypedSent(t.id, "relay"); });
         errEl.className = "note";
         errEl.textContent = "Landed in Todd\u2019s Dropbox as " + (receipt.name || "cory-outreach-answers.zip") + ".";
+        sayRelay("One-tap upload: ready.");
       }, function (e) {
         saveAndPoint(r, errEl, step);
+        errEl.className = "err";
         errEl.textContent = "Todd\u2019s relay " + e.message + ", so the file is saved on this phone instead. " +
           "One more tap below.";
+        sayRelay("One-tap upload: the last try failed (" + e.message + ").");
       });
     }).catch(function (e) { packFailed(errEl, e); });
   }

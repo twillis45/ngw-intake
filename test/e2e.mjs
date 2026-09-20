@@ -778,6 +778,8 @@ relayHits.length = 0;
 await rp.goto('http://localhost:8731/?k=open-sesame', { waitUntil: 'load' });
 await rp.waitForTimeout(400);
 ok(relayHits.some((h) => h.url === '/health'), 'the page wakes the relay as soon as it loads with a passcode');
+ok(/One-tap upload: ready/.test(await rp.locator('#relay-state').textContent()),
+   'and says the one-tap route is ready once the relay answers');
 await tap(rp, 'q1'); await rp.waitForTimeout(1100); await tap(rp, 'q1'); await rp.waitForTimeout(800);
 await rp.locator('article.q').nth(1).locator('summary').click();
 await rp.waitForTimeout(60);
@@ -814,12 +816,31 @@ ok(fzip.suggestedFilename() === 'cory-outreach-answers.zip', 'when the relay fai
 ok(await rp.locator('#dropbox-step').isVisible(), 'and the one-more-tap card takes over');
 ok(/relay dropbox, so the file is saved on this phone instead/.test(await rp.locator('#sendall-err').textContent()),
    'with the reason, in words');
+ok(/last try failed \(dropbox\)/.test(await rp.locator('#relay-state').textContent()),
+   'and the status line keeps the reason after the message scrolls away');
 ok((await rp.locator('article.q').nth(2).locator('.clip .flag').first().textContent()) === 'Saved to phone',
    'and the new clip says saved to phone, not sent');
 ok((await rp.locator('article.q').first().locator('.clip .flag').first().textContent()) === 'In Todd\u2019s Dropbox',
    'while the one that landed keeps its receipt');
 relayStub.fail = false;
 await rly.close();
+
+// No code on the link: the page says so, instead of quietly taking the other route.
+const nok = await browser.newContext({ permissions: ['microphone'], viewport: { width: 390, height: 844 } });
+const np3 = await nok.newPage();
+await np3.goto('http://localhost:8731/', { waitUntil: 'load' });
+ok(/off on this link: it carries no code/.test(await np3.locator('#relay-state').textContent()),
+   'a link without a code says one-tap is off, and why');
+await nok.close();
+// A code, but a relay that is unreachable: the page says that too.
+const dead = await browser.newContext({ permissions: ['microphone'], viewport: { width: 390, height: 844 } });
+await dead.addInitScript(() => { window.NGW_RELAY_URL = 'http://localhost:8799'; });
+const dp3 = await dead.newPage();
+await dp3.goto('http://localhost:8731/?k=open-sesame', { waitUntil: 'load' });
+await dp3.waitForTimeout(800);
+ok(/relay didn\u2019t answer/.test(await dp3.locator('#relay-state').textContent()),
+   'a relay that cannot be reached is reported before he taps anything');
+await dead.close();
 
 console.log('\n=== mistakes, do-overs and deletions ===');
 const mdc = await browser.newContext({ permissions: ['microphone'], viewport: { width: 390, height: 844 }, acceptDownloads: true });
