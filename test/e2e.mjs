@@ -33,6 +33,25 @@ const server = http.createServer((_, res) => {
   res.end(html);
 }).listen(8731);
 
+// A stand-in for Todd's relay: it records what it was sent and answers as
+// the real one does, and can be told to fail.
+const relayHits = [];
+const relayStub = http.createServer(async (req, res) => {
+  const chunks = [];
+  for await (const c of req) chunks.push(c);
+  const origin = req.headers.origin || '';
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Passcode');
+  if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
+  relayHits.push({ url: req.url, code: req.headers['x-passcode'] || '', origin, len: Buffer.concat(chunks).length });
+  const j = (code, o) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(o)); };
+  if (req.url === '/health') return j(200, { ok: true });
+  if (relayStub.fail) return j(502, { ok: false, error: 'dropbox' });
+  if ((req.headers['x-passcode'] || '') !== 'open-sesame') return j(403, { ok: false, error: 'passcode' });
+  j(200, { ok: true, name: '20260920T050000Z-cory-outreach-answers.zip', path: '/Cory outreach recordings/x.zip', size: 1 });
+}).listen(8737);
+
 const fail = [];
 const ok = (cond, label) => {
   console.log((cond ? '  ok   ' : '  FAIL ') + label);
@@ -748,6 +767,60 @@ ok((await xp.locator('#dropbox-link-2').getAttribute('href')) === 'https://www.d
    'the Voice Memos route in the how-to points at the same drop box');
 await dbx.close();
 
+console.log('\n=== the relay route: one tap, a receipt, and a fallback that loses nothing ===');
+const rly = await browser.newContext({ permissions: ['microphone'],
+  viewport: { width: 390, height: 844 }, acceptDownloads: true });
+await rly.addInitScript(() => { window.NGW_RELAY_URL = 'http://localhost:8737'; });
+const rp = await rly.newPage();
+let rpDownloads = 0;
+rp.on('download', () => { rpDownloads += 1; });
+relayHits.length = 0;
+await rp.goto('http://localhost:8731/?k=open-sesame', { waitUntil: 'load' });
+await rp.waitForTimeout(400);
+ok(relayHits.some((h) => h.url === '/health'), 'the page wakes the relay as soon as it loads with a passcode');
+await tap(rp, 'q1'); await rp.waitForTimeout(1100); await tap(rp, 'q1'); await rp.waitForTimeout(800);
+await rp.locator('article.q').nth(1).locator('summary').click();
+await rp.waitForTimeout(60);
+await rp.locator('article.q').nth(1).locator('button.typebtn').click();
+await rp.locator('#text-q2').fill('Three short ones.');
+await rp.waitForTimeout(900);
+await rp.locator('#dropbox').click();
+await rp.waitForTimeout(1500);
+const up = relayHits.find((h) => h.url.startsWith('/upload'));
+ok(!!up && up.code === 'open-sesame' && up.len > 0, 'the zip is posted to the relay with the passcode');
+ok(/name=cory-outreach-answers\.zip/.test(up ? up.url : ''), 'named for what it is');
+ok(rpDownloads === 0, 'nothing is downloaded when the relay takes it');
+ok(await rp.locator('#dropbox-step').isHidden(), 'and no one-more-tap card is shown');
+ok(/Landed in Todd\u2019s Dropbox as 20260920T050000Z-cory-outreach-answers\.zip/.test(await rp.locator('#sendall-err').textContent()),
+   'the receipt names the file as it landed');
+ok((await rp.locator('article.q').first().locator('.clip .flag').first().textContent()) === 'In Todd\u2019s Dropbox',
+   'the clip carries the one badge that has a receipt behind it');
+ok(/in Todd\u2019s Dropbox/.test(await rp.locator('#tally').textContent()), 'so does the tally');
+ok(await rp.locator('#dropbox').isVisible() && await rp.locator('#downloadall').isVisible(),
+   'the buttons stay, in case he adds more');
+await rp.goto('http://localhost:8731/', { waitUntil: 'load' });
+await rp.waitForTimeout(1300);
+ok((await rp.locator('article.q').first().locator('.clip .flag').first().textContent()) === 'In Todd\u2019s Dropbox',
+   'the receipt survives a reload without the passcode on the link');
+ok(relayHits.filter((h) => h.url === '/health').length >= 2, 'and the remembered passcode still wakes the relay');
+// The relay is down. Same tap, same zip, the other way.
+relayStub.fail = true;
+await rp.locator('article.q').nth(2).locator('summary').click();
+await rp.waitForTimeout(60);
+await tap(rp, 'q3'); await rp.waitForTimeout(1100); await tap(rp, 'q3'); await rp.waitForTimeout(800);
+const [fzip] = await Promise.all([rp.waitForEvent('download'), rp.locator('#dropbox').click()]);
+await rp.waitForTimeout(600);
+ok(fzip.suggestedFilename() === 'cory-outreach-answers.zip', 'when the relay fails the zip is saved on the phone instead');
+ok(await rp.locator('#dropbox-step').isVisible(), 'and the one-more-tap card takes over');
+ok(/relay dropbox, so the file is saved on this phone instead/.test(await rp.locator('#sendall-err').textContent()),
+   'with the reason, in words');
+ok((await rp.locator('article.q').nth(2).locator('.clip .flag').first().textContent()) === 'Saved to phone',
+   'and the new clip says saved to phone, not sent');
+ok((await rp.locator('article.q').first().locator('.clip .flag').first().textContent()) === 'In Todd\u2019s Dropbox',
+   'while the one that landed keeps its receipt');
+relayStub.fail = false;
+await rly.close();
+
 console.log('\n=== the shared file carries a bare media type ===');
 const mime = await browser.newContext({ permissions: ['microphone'],
   viewport: { width: 390, height: 844 } });
@@ -867,5 +940,6 @@ ok(real.length === 0, real.length ? 'page errors: ' + real.join(' | ')
 
 await browser.close();
 server.close();
+relayStub.close();
 console.log(fail.length ? `\nFAILED (${fail.length})` : '\nALL PASS');
 process.exit(fail.length ? 1 : 0);

@@ -416,6 +416,24 @@
   // Todd's Dropbox file request: anyone with the link can add files, nothing
   // else. They land in one folder of his; nobody sees anyone else's.
   var DROPBOX_REQUEST = "https://www.dropbox.com/request/mthmpmq4pc6s85pg8pea";
+  // Todd's relay: the one-tap route. A small service that holds the Dropbox
+  // key so this page never has to. It is on only when the link carried a
+  // passcode (?k=), which the page remembers; without one, the drop box.
+  var RELAY_URL = window.NGW_RELAY_URL || "https://ngw-intake-relay.onrender.com";
+  var relayKey = (function () {
+    var m = location.search.match(/[?&]k=([^&]+)/), k = m ? decodeURIComponent(m[1]) : "";
+    try {
+      if (k) localStorage.setItem("ngw-relay-k", k);
+      else k = localStorage.getItem("ngw-relay-k") || "";
+    } catch (e) {}
+    return k;
+  })();
+  var relayOn = !!relayKey;
+  // A free Render service sleeps after fifteen idle minutes and takes up to
+  // a minute to wake. Wake it while he is still reading the first question.
+  if (relayOn && window.fetch) {
+    try { fetch(RELAY_URL + "/health", { mode: "cors" }).catch(function () {}); } catch (e) {}
+  }
   ["dropbox-link", "dropbox-link-2"].forEach(function (id) {
     document.getElementById(id).href = DROPBOX_REQUEST;
   });
@@ -791,10 +809,11 @@
   }
   // A typed answer that went with a share sheet is marked like a clip is,
   // and the mark persists. Editing the text afterwards clears it.
-  function markTypedSent(id) {
+  function markTypedSent(id, how) {
     var c = cards[id];
     c.typedSent = true;
-    put(textKey(id), { text: c.ta.value, at: Date.now(), sent: "shared" }).catch(function () {});
+    c.typedHow = how || "shared";
+    put(textKey(id), { text: c.ta.value, at: Date.now(), sent: c.typedHow }).catch(function () {});
     tally();
   }
   function typedPending() {
@@ -876,7 +895,7 @@
     // Never "Sent": the share promise resolves when the OS hands the file to
     // an app, not when the message leaves. Claiming delivery here is the exact
     // failure that loses an answer for good.
-    rec.flag.textContent = "Handed off";
+    rec.flag.textContent = how === "relay" ? "In Todd\u2019s Dropbox" : "Handed off";
     rec.flag.className = "flag";
     rec.clip.sent = how;
     tally();
@@ -1323,10 +1342,13 @@
       groups.forEach(function (g) { g.forEach(function (e) { if (e.bytes.length) entries.push(e); }); });
       typedNow.forEach(function (f) { entries.push(f); });
       var zip = makeZip(entries);
-      saveBlob(zip, "cory-outreach-answers.zip");
-      items.forEach(function (it) { markSaved(it.rec); });
-      return { entries: entries, items: items };
+      return { zip: zip, entries: entries, items: items };
     });
+  }
+  // Save the zip on the phone and remember that on each clip.
+  function keepOnPhone(r) {
+    saveBlob(r.zip, "cory-outreach-answers.zip");
+    r.items.forEach(function (it) { markSaved(it.rec); });
   }
   function packFailed(errEl, e) {
     errEl.className = "err";
@@ -1340,6 +1362,7 @@
     var job = packEverything();
     if (!job) return;
     job.then(function (r) {
+      keepOnPhone(r);
       errEl.className = "note";
       errEl.textContent = "Saved one file with " + r.entries.length + " item" +
         (r.entries.length === 1 ? "" : "s") + " in it \u2014 look in Downloads or Files for " +
@@ -1348,10 +1371,44 @@
     }).catch(function (e) { packFailed(errEl, e); });
   }
 
-  // The drop-box route: the same zip, saved to the phone, then one tap into
-  // Todd's Dropbox. Two steps because a page on GitHub cannot write to his
-  // Dropbox itself and must not carry a key that could. The step card stays
-  // up until he sends again, so switching apps and back does not lose it.
+  // The drop-box route without a relay: the same zip, saved to the phone,
+  // then one tap into Todd's Dropbox. The step card stays up until he sends
+  // again, so switching apps and back does not lose it.
+  function saveAndPoint(r, errEl, step) {
+    keepOnPhone(r);
+    errEl.className = "note";
+    errEl.textContent = "Saved one file with " + r.entries.length + " item" +
+      (r.entries.length === 1 ? "" : "s") + " in it. Now the tap below.";
+    step.hidden = false;
+    step.scrollIntoView({ block: "nearest" });
+  }
+  // The relay route: the zip goes straight to Todd's Dropbox and the relay
+  // answers with the name it landed under. Progress is shown as it goes. A
+  // relay that does not answer is not a lost answer: the same zip is saved
+  // on the phone and the drop-box card takes over, with the reason.
+  function uploadToRelay(r, errEl) {
+    return new Promise(function (resolve, reject) {
+      var xhr = new XMLHttpRequest();
+      xhr.open("POST", RELAY_URL + "/upload?name=cory-outreach-answers.zip");
+      xhr.setRequestHeader("X-Passcode", relayKey);
+      xhr.setRequestHeader("Content-Type", "application/zip");
+      xhr.timeout = 180000;
+      xhr.upload.onprogress = function (ev) {
+        if (ev.lengthComputable && ev.total) {
+          errEl.textContent = "Sending to Todd\u2019s Dropbox\u2026 " + Math.round(ev.loaded / ev.total * 100) + "%";
+        }
+      };
+      xhr.onload = function () {
+        var j = null;
+        try { j = JSON.parse(xhr.responseText); } catch (e) {}
+        if (xhr.status === 200 && j && j.ok) resolve(j);
+        else reject(new Error(j && j.error ? j.error : "answered " + xhr.status));
+      };
+      xhr.onerror = function () { reject(new Error("no connection")); };
+      xhr.ontimeout = function () { reject(new Error("timed out")); };
+      xhr.send(r.zip);
+    });
+  }
   function toDropbox() {
     var errEl = document.getElementById("sendall-err");
     var step = document.getElementById("dropbox-step");
@@ -1359,11 +1416,20 @@
     var job = packEverything();
     if (!job) return;
     job.then(function (r) {
+      if (!relayOn) { saveAndPoint(r, errEl, step); return; }
       errEl.className = "note";
-      errEl.textContent = "Saved one file with " + r.entries.length + " item" +
-        (r.entries.length === 1 ? "" : "s") + " in it. Now the tap below.";
-      step.hidden = false;
-      step.scrollIntoView({ block: "nearest" });
+      errEl.textContent = "Sending to Todd\u2019s Dropbox\u2026 the first one can take a minute while his relay wakes up.";
+      errEl.hidden = false;
+      return uploadToRelay(r, errEl).then(function (receipt) {
+        r.items.forEach(function (it) { markSent(it.rec, "relay"); });
+        typedFiles(false).forEach(function (t) { markTypedSent(t.id, "relay"); });
+        errEl.className = "note";
+        errEl.textContent = "Landed in Todd\u2019s Dropbox as " + (receipt.name || "cory-outreach-answers.zip") + ".";
+      }, function (e) {
+        saveAndPoint(r, errEl, step);
+        errEl.textContent = "Todd\u2019s relay " + e.message + ", so the file is saved on this phone instead. " +
+          "One more tap below.";
+      });
     }).catch(function (e) { packFailed(errEl, e); });
   }
 
@@ -1538,6 +1604,12 @@
     // "Saved to phone" is not "sent": a zip in his Downloads has not reached
     // anyone. The line says which of the two he is looking at.
     var allSaved = unsent.length > 0 && unsent.every(function (it) { return it.rec.clip.saved; });
+    // "In Todd's Dropbox" is the one claim with a receipt behind it, so the
+    // line says it only when every mark is the relay's.
+    var landed = ids.every(function (i) {
+      return cards[i].clips.every(function (r) { return r.clip.sent === "relay"; }) &&
+             (!typedText(i) || cards[i].typedHow === "relay");
+    });
     // UX_06: a status says what it means for him, not just its own number.
     document.getElementById("tally").textContent =
       total === 0 && typedCount && pending ? typedCount + " typed answer" + (typedCount === 1 ? "" : "s") +
@@ -1546,6 +1618,7 @@
       : total === 0 ? "Nothing recorded or typed on this page yet."
       : allSaved ? "Everything is in one file on this phone. It still has to reach Todd: " +
         "the drop box, or a text."
+      : pending === 0 && landed ? "Everything here is in Todd\u2019s Dropbox."
       : pending === 0 ? "Everything here has been handed off."
       : pending + (pending === 1 ? " answer" : " answers") + " still to send.";
     var sa = document.getElementById("sendall");
@@ -1595,7 +1668,8 @@
           cards[tid].typeBtn.textContent = "Hide the typing box";
           cards[tid].state.hidden = false;
           cards[tid].state.textContent = "Saved on this device";
-          cards[tid].typedSent = saved[key].sent === "shared";
+          cards[tid].typedSent = !!saved[key].sent;
+          cards[tid].typedHow = saved[key].sent || "";
         }
         return;
       }

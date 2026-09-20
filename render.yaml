@@ -1,0 +1,27 @@
+# Render Blueprint: the relay that carries a zip from the recordings page into
+# Todd's Dropbox. One free web service, no build step, four secrets set in the
+# Render dashboard (sync: false means Render asks for them, never reads them
+# from here). The page itself stays on GitHub Pages.
+services:
+  - type: web
+    name: ngw-intake-relay
+    runtime: node
+    rootDir: relay
+    plan: free
+    buildCommand: ""
+    startCommand: node server.mjs
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: DROPBOX_APP_KEY
+        sync: false
+      - key: DROPBOX_APP_SECRET
+        sync: false
+      - key: DROPBOX_REFRESH_TOKEN
+        sync: false
+      - key: RELAY_PASSCODE
+        sync: false
+      - key: ALLOWED_ORIGIN
+        value: https://twillis45.github.io
+      - key: DROPBOX_FOLDER
+        value: /No-Guesswork-Systems/Cory outreach recordings
