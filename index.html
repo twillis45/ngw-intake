@@ -108,6 +108,20 @@
   .fwd p { margin: 12px 0 0; padding-top: 12px; border-top: 1px solid var(--border);
            font-size: 14px; color: var(--fg-2); }
 
+  /* A link dressed as a button: the drop box is another site, so it is an
+     anchor, but it has to be as easy to hit as Record. */
+  .linkbtn { display: inline-flex; align-items: center; justify-content: center;
+             min-height: 44px; padding: 0 16px; border-radius: 8px;
+             border: 1px solid var(--border-strong); color: var(--fg);
+             font-size: 14px; font-weight: 600; text-decoration: none;
+             touch-action: manipulation; }
+  .linkbtn:hover { background: rgba(255,255,255,.04); }
+  .linkbtn:focus-visible { outline: 2px solid var(--steel-text); outline-offset: 2px; }
+  .step { border-left: 2px solid var(--steel); }
+  .step .label { display: block; margin-bottom: 8px; }
+  .step p { margin: 0 0 12px; font-size: 14px; color: var(--fg-2); }
+  .step b { color: var(--fg); font-weight: 600; }
+
   .warn { background: var(--card); border: 1px solid var(--border);
           border-left: 2px solid var(--amber); border-radius: 8px;
           padding: 12px 16px; font-size: 14px; color: var(--fg-2); }
@@ -341,7 +355,15 @@
     <div class="actions">
       <button type="button" id="sendall" class="send" hidden>Text them to Todd</button>
       <button type="button" id="downloadall" class="second" hidden>Save them all as one file</button>
+      <button type="button" id="dropbox" class="second" hidden>Save them all to Todd’s Dropbox</button>
       <div class="err" id="sendall-err" hidden></div>
+      <section class="card step" id="dropbox-step" hidden>
+        <span class="label">One more tap</span>
+        <p>The file is saved on this phone as <b>cory-outreach-answers.zip</b>, in
+          Files under Downloads. Todd’s drop box takes any size, no account needed:
+          open it, tap <b>Add files</b>, pick the zip.</p>
+        <a class="linkbtn" id="dropbox-link" href="#" target="_blank" rel="noopener">Open Todd’s drop box</a>
+      </section>
       <p class="note" id="sizewarn" hidden></p>
       <p class="tallynote" id="tally" aria-live="polite">Nothing recorded or typed on this page yet.</p>
       <p class="tallynote">Recording in Voice Memos instead? This counter won’t see
@@ -373,6 +395,9 @@
           if your phone locks, a recording here stops and keeps what you had.</li>
         <li>Anything you record here stays in this browser on this phone until
           you send it.</li>
+        <li>Recorded in Voice Memos? Share the clip, <b>Save to Files</b>, then drop
+          it in <a id="dropbox-link-2" href="#" target="_blank" rel="noopener">Todd’s
+          drop box</a>. No account, any size.</li>
       </ul>
       </details>
   </section>
@@ -387,6 +412,13 @@
 <script>
 (function () {
   "use strict";
+
+  // Todd's Dropbox file request: anyone with the link can add files, nothing
+  // else. They land in one folder of his; nobody sees anyone else's.
+  var DROPBOX_REQUEST = "https://www.dropbox.com/request/mthmpmq4pc6s85pg8pea";
+  ["dropbox-link", "dropbox-link-2"].forEach(function (id) {
+    document.getElementById(id).href = DROPBOX_REQUEST;
+  });
 
   var QUESTIONS = [
     { group: "If you only do three", big: true, id: "q1",
@@ -1211,8 +1243,9 @@
     setTimeout(function () { URL.revokeObjectURL(url); }, 20000);
   }
 
-  function downloadEverything() {
-    var errEl = document.getElementById("sendall-err");
+  // Everything on the page as one zip. Both routes out of the page (Downloads,
+  // Todd's drop box) start here; nothing else builds an archive.
+  function packEverything() {
     var items = allClips();
     if (!items.length) {
       items = [];
@@ -1223,8 +1256,9 @@
     var typedNow = typedFiles();
     // An answer he typed is an answer. Counting only recordings here meant a
     // typed-only page produced nothing at all when he pressed send.
-    if (!items.length && !typedNow.length) return;
+    if (!items.length && !typedNow.length) return null;
     var n = items.length + typedNow.length;
+    var errEl = document.getElementById("sendall-err");
     errEl.className = "note";
     errEl.textContent = "Packing " + n + " answer" + (n === 1 ? "" : "s") + "\u2026";
     errEl.hidden = false;
@@ -1237,23 +1271,53 @@
       });
     });
 
-    Promise.all(jobs).then(function (groups) {
+    return Promise.all(jobs).then(function (groups) {
       var entries = [];
       groups.forEach(function (g) { g.forEach(function (e) { if (e.bytes.length) entries.push(e); }); });
       typedNow.forEach(function (f) { entries.push(f); });
       var zip = makeZip(entries);
       saveBlob(zip, "cory-outreach-answers.zip");
       items.forEach(function (it) { markSent(it.rec, "local"); });
+      return { entries: entries, items: items };
+    });
+  }
+  function packFailed(errEl, e) {
+    errEl.className = "err";
+    errEl.textContent = "Couldn\u2019t pack the recordings" +
+      (e && e.name ? " (" + e.name + ")" : "") + ". Use the button on each recording instead.";
+  }
+
+  function downloadEverything() {
+    var errEl = document.getElementById("sendall-err");
+    document.getElementById("dropbox-step").hidden = true;
+    var job = packEverything();
+    if (!job) return;
+    job.then(function (r) {
       errEl.className = "note";
-      errEl.textContent = "Saved one file with " + entries.length + " item" +
-        (entries.length === 1 ? "" : "s") + " in it \u2014 look in Downloads or Files for " +
+      errEl.textContent = "Saved one file with " + r.entries.length + " item" +
+        (r.entries.length === 1 ? "" : "s") + " in it \u2014 look in Downloads or Files for " +
         "cory-outreach-answers.zip, then attach it to a text or an email. Nothing has left " +
         "this device on its own.";
-    }).catch(function (e) {
-      errEl.className = "err";
-      errEl.textContent = "Couldn\u2019t pack the recordings" +
-        (e && e.name ? " (" + e.name + ")" : "") + ". Use the button on each recording instead.";
-    });
+    }).catch(function (e) { packFailed(errEl, e); });
+  }
+
+  // The drop-box route: the same zip, saved to the phone, then one tap into
+  // Todd's Dropbox. Two steps because a page on GitHub cannot write to his
+  // Dropbox itself and must not carry a key that could. The step card stays
+  // up until he sends again, so switching apps and back does not lose it.
+  function toDropbox() {
+    var errEl = document.getElementById("sendall-err");
+    var step = document.getElementById("dropbox-step");
+    step.hidden = true;
+    var job = packEverything();
+    if (!job) return;
+    job.then(function (r) {
+      errEl.className = "note";
+      errEl.textContent = "Saved one file with " + r.entries.length + " item" +
+        (r.entries.length === 1 ? "" : "s") + " in it. Now the tap below.";
+      step.hidden = false;
+      step.scrollIntoView({ block: "nearest" });
+    }).catch(function (e) { packFailed(errEl, e); });
   }
 
   // ---- sharing ------------------------------------------------------------
@@ -1384,6 +1448,7 @@
 
   document.getElementById("sendall").addEventListener("click", sendAll);
   document.getElementById("downloadall").addEventListener("click", downloadEverything);
+  document.getElementById("dropbox").addEventListener("click", toDropbox);
 
   // Whether this browser can hand files to Messages is knowable before he taps
   // anything, so the page decides once and labels the buttons accordingly
@@ -1429,7 +1494,9 @@
       : pending + (pending === 1 ? " recording" : " recordings") + " still to send.";
     var sa = document.getElementById("sendall");
     var dl = document.getElementById("downloadall");
+    var db = document.getElementById("dropbox");
     var any = total > 0 || typedCount > 0;
+    db.hidden = !any;
     sa.hidden = (pending === 0 && typedCount === 0) || !canShareFiles;
     sa.textContent = pending === 1 ? "Text it to Todd" : "Text all " + pending + " to Todd";
     dl.hidden = !any;
@@ -1449,8 +1516,8 @@
     if (size > 900 * 1024) {
       warn.hidden = false;
       warn.textContent = "That is " + humanSize(size) + ". An ordinary text message tops out " +
-        "near 1 MB, so this needs iMessage, Google Messages, email or AirDrop \u2014 or send " +
-        "a few questions at a time using the button on each recording.";
+        "near 1 MB, so this needs iMessage, Google Messages, email or AirDrop \u2014 or " +
+        "Todd\u2019s Dropbox, which takes any size.";
     } else {
       warn.hidden = true;
     }

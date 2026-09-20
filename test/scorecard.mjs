@@ -194,6 +194,9 @@ check('3.4', 'Touch targets minimum 44px', taps === 0, `${taps} under 44px`);
 const heads = await page.evaluate(() => [...document.querySelectorAll('summary')]
   .filter((s) => s.offsetParent !== null && s.getBoundingClientRect().height < 44).length);
 check('3.4d', 'Disclosure rows are tappable at 44px', heads === 0, `${heads} under 44px`);
+const linkbtns = await page.evaluate(() => [...document.querySelectorAll('.linkbtn')]
+  .filter((a) => a.offsetParent !== null && a.getBoundingClientRect().height < 44).length);
+check('3.4e', 'Links dressed as buttons meet the 44px floor', linkbtns === 0, `${linkbtns} under 44px`);
 
 // The sms links are the escape hatch — the thing he reaches for when something
 // has gone wrong — and as bare inline text they measured 89x15px.

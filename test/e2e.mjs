@@ -616,6 +616,35 @@ ok(await yp.locator('#downloadall').evaluate((e) => e.className === 'second'),
    'and the one-file route steps back to secondary');
 await yesshare.close();
 
+console.log('\n=== the drop-box route: one zip, one more tap ===');
+const dbx = await browser.newContext({ permissions: ['microphone'],
+  viewport: { width: 390, height: 844 }, acceptDownloads: true });
+const xp = await dbx.newPage();
+await xp.goto('http://localhost:8731/', { waitUntil: 'load' });
+ok(await xp.locator('#dropbox').isHidden(), 'no drop-box button before there is anything to send');
+ok(await xp.locator('#dropbox-step').isHidden(), 'and no step card');
+await tap(xp, 'q1');
+await xp.waitForTimeout(1100);
+await tap(xp, 'q1');
+await xp.waitForTimeout(800);
+ok(await xp.locator('#dropbox').isVisible(), 'the drop-box button appears with the first answer');
+ok(/^Save/.test((await xp.locator('#dropbox').textContent()).trim()), 'and its label is a verb');
+const [xzip] = await Promise.all([xp.waitForEvent('download'), xp.locator('#dropbox').click()]);
+ok(xzip.suggestedFilename() === 'cory-outreach-answers.zip', 'it saves the same zip to the phone first');
+await xp.waitForTimeout(400);
+ok(await xp.locator('#dropbox-step').isVisible(), 'then shows the one-more-tap card');
+const dlink = xp.locator('#dropbox-link');
+ok((await dlink.getAttribute('href')) === 'https://www.dropbox.com/request/mthmpmq4pc6s85pg8pea',
+   'the card links to the file request, not a Dropbox login');
+ok((await dlink.getAttribute('target')) === '_blank' && /noopener/.test(await dlink.getAttribute('rel') || ''),
+   'it opens beside the page, so the page and its recordings stay put');
+ok(await dlink.evaluate((a) => a.getBoundingClientRect().height >= 44), 'the link taps like a button');
+ok(/Saved to phone/.test(await xp.locator('article.q').first().locator('.clip .flag').first().textContent()),
+   'the clip is marked saved to phone, never as sent');
+ok((await xp.locator('#dropbox-link-2').getAttribute('href')) === 'https://www.dropbox.com/request/mthmpmq4pc6s85pg8pea',
+   'the Voice Memos route in the how-to points at the same drop box');
+await dbx.close();
+
 console.log('\n=== the shared file carries a bare media type ===');
 const mime = await browser.newContext({ permissions: ['microphone'],
   viewport: { width: 390, height: 844 } });
