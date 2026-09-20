@@ -821,6 +821,108 @@ ok((await rp.locator('article.q').first().locator('.clip .flag').first().textCon
 relayStub.fail = false;
 await rly.close();
 
+console.log('\n=== mistakes, do-overs and deletions ===');
+const mdc = await browser.newContext({ permissions: ['microphone'], viewport: { width: 390, height: 844 }, acceptDownloads: true });
+const mp2 = await mdc.newPage();
+await mp2.goto('http://localhost:8731/', { waitUntil: 'load' });
+const c0 = mp2.locator('article.q').first();
+const keys = () => mp2.evaluate(() => new Promise((res) => {
+  const r = indexedDB.open('ngw-voice-brief', 1);
+  r.onsuccess = () => { const g = r.result.transaction('clips').objectStore('clips').getAllKeys(); g.onsuccess = () => res(g.result.map(String).sort()); };
+}));
+// A mis-tap: Record and Stop inside a fraction of a second.
+await mp2.evaluate(() => { const b = document.getElementById('mic-q1'); b.click(); setTimeout(() => b.click(), 200); });
+await mp2.waitForTimeout(900);
+ok((await c0.locator('.clip').count()) === 0, 'a tap-and-release files nothing');
+ok(/tap, not a take/.test(await c0.locator('.note, .err').first().textContent()), 'and says so in words');
+ok((await mp2.locator('#fig-answered').textContent()) === `0/${N}`, 'the question is not counted as answered');
+ok((await mp2.locator('#mic-q1').textContent()) === 'Record' && !(await mp2.locator('#mic-q4').isDisabled()),
+   'the button and the mic lock are back to rest');
+// A real take, then the delete arm left to lapse.
+await tap(mp2, 'q1'); await mp2.waitForTimeout(1100); await tap(mp2, 'q1'); await mp2.waitForTimeout(800);
+const d1 = c0.locator('.clip').first().locator('button.danger');
+await d1.click(); await mp2.waitForTimeout(200);
+ok((await d1.textContent()) === 'Delete for good?', 'one tap arms');
+await mp2.waitForTimeout(4300);
+ok((await d1.textContent()) === 'Delete' && (await c0.locator('.clip').count()) === 1,
+   'left alone, the arm lapses and nothing is deleted');
+// Armed, then distracted by another question: still nothing deleted.
+await d1.click(); await mp2.waitForTimeout(100);
+await mp2.locator('article.q').nth(1).locator('summary').click(); await mp2.waitForTimeout(100);
+await c0.locator('summary').click(); await mp2.waitForTimeout(100);
+ok((await c0.locator('.clip').count()) === 1, 'opening another question while armed deletes nothing');
+await mp2.waitForTimeout(4300);
+// Armed, then the page is closed: nothing deleted.
+await d1.click(); await mp2.waitForTimeout(100);
+await mp2.reload({ waitUntil: 'load' }); await mp2.waitForTimeout(1300);
+ok((await c0.locator('.clip').count()) === 1, 'an arm does not survive a reload as a deletion');
+// Delete the only take: the question goes back to unanswered, everywhere.
+await c0.locator('summary').click(); await mp2.waitForTimeout(60);
+const d2 = c0.locator('.clip').first().locator('button.danger');
+await d2.click(); await d2.click(); await mp2.waitForTimeout(400);
+ok((await c0.locator('.clip').count()) === 0, 'the only take is gone');
+ok((await mp2.locator('#fig-answered').textContent()) === `0/${N}` &&
+   (await mp2.locator('#mic-q1').textContent()) === 'Record' &&
+   await c0.locator('.qstate').isHidden() &&
+   !(await c0.evaluate((e) => e.classList.contains('has-rec'))),
+   'the ledger, the button, the folded-row state and the card all say unanswered');
+ok(/Start with 01/.test(await mp2.locator('#next').textContent()), 'the whisper points back at it');
+ok(await mp2.locator('#dropbox').isHidden() && await mp2.locator('#downloadall').isHidden() &&
+   await mp2.locator('#sendall-err').isHidden(),
+   'nothing is offered for sending, and no stale note about sending remains');
+ok((await keys()).length === 0, 'and the store is empty, not just the screen');
+// Do-over: record again after deleting. One take, one key, and a reload agrees.
+await tap(mp2, 'q1'); await mp2.waitForTimeout(1100); await tap(mp2, 'q1'); await mp2.waitForTimeout(800);
+ok((await c0.locator('.clip').count()) === 1 && (await c0.locator('.clip .part').first().textContent()) === 'Part 1',
+   'the do-over is Part 1, not Part 2');
+const k1 = await keys();
+ok(k1.length === 1, `one key in the store (${k1.join(',')})`);
+await mp2.reload({ waitUntil: 'load' }); await mp2.waitForTimeout(1300);
+ok((await c0.locator('.clip').count()) === 1, 'the do-over survives a reload with no ghost of the deleted take');
+// Three takes, delete the middle one: the survivors renumber and reload in order.
+await c0.locator('summary').click(); await mp2.waitForTimeout(60);
+await tap(mp2, 'q1'); await mp2.waitForTimeout(1100); await tap(mp2, 'q1'); await mp2.waitForTimeout(800);
+await tap(mp2, 'q1'); await mp2.waitForTimeout(1100); await tap(mp2, 'q1'); await mp2.waitForTimeout(800);
+ok((await c0.locator('.clip').count()) === 3, 'three takes');
+const dm = c0.locator('.clip').nth(1).locator('button.danger');
+await dm.click(); await dm.click(); await mp2.waitForTimeout(400);
+ok((await c0.locator('.clip .part').allTextContents()).join(',') === 'Part 1,Part 2', 'the middle one goes and the rest renumber');
+await mp2.reload({ waitUntil: 'load' }); await mp2.waitForTimeout(1300);
+ok((await c0.locator('.clip').count()) === 2 && (await c0.locator('.clip .part').allTextContents()).join(',') === 'Part 1,Part 2',
+   'two come back, numbered 1 and 2');
+ok(await c0.locator('.clip audio').evaluateAll((as) => as.every((a) => a.src.startsWith('blob:'))), 'each with its audio');
+await c0.locator('summary').click(); await mp2.waitForTimeout(60);
+await tap(mp2, 'q1'); await mp2.waitForTimeout(1100); await tap(mp2, 'q1'); await mp2.waitForTimeout(800);
+ok((await c0.locator('.clip .part').allTextContents()).join(',') === 'Part 1,Part 2,Part 3',
+   'a new take after a reload numbers on from the survivors');
+ok((await keys()).length === 3, 'three keys, none colliding');
+// Deleting a take that already went does not resurrect anything.
+await mp2.evaluate(() => {
+  Object.defineProperty(navigator, 'canShare', { value: () => true, configurable: true });
+  Object.defineProperty(navigator, 'share', { value: () => Promise.resolve(), configurable: true });
+});
+await c0.locator('.clip').first().locator('button.send').click(); await mp2.waitForTimeout(400);
+ok((await c0.locator('.clip').first().locator('.flag').textContent()) === 'Handed off', 'first take handed off');
+ok((await mp2.locator('#sendall').textContent()) === 'Text all 2 to Todd', 'two left to send');
+const ds = c0.locator('.clip').first().locator('button.danger');
+await ds.click(); await ds.click(); await mp2.waitForTimeout(400);
+ok((await mp2.locator('#sendall').textContent()) === 'Text all 2 to Todd', 'deleting the sent one leaves two to send');
+ok((await c0.locator('.clip .part').allTextContents()).join(',') === 'Part 1,Part 2', 'and the rest renumber');
+// A typed do-over: clear the text and the answer is gone, everywhere.
+await mp2.locator('article.q').nth(1).locator('summary').click(); await mp2.waitForTimeout(60);
+await mp2.locator('article.q').nth(1).locator('button.typebtn').click();
+await mp2.locator('#text-q2').fill('First thought.'); await mp2.waitForTimeout(900);
+ok((await mp2.locator('#fig-answered').textContent()) === `2/${N}`, 'a typed answer counts');
+await mp2.locator('#text-q2').fill(''); await mp2.waitForTimeout(900);
+ok((await mp2.locator('#fig-answered').textContent()) === `1/${N}` &&
+   await mp2.locator('article.q').nth(1).locator('.qstate').isHidden(),
+   'clearing it uncounts it and clears the folded-row state');
+ok(!(await keys()).some((k) => k === 'text::q2'), 'and removes it from the store');
+await mp2.reload({ waitUntil: 'load' }); await mp2.waitForTimeout(1300);
+ok((await mp2.locator('#text-q2').inputValue()) === '' && (await mp2.locator('#fig-answered').textContent()) === `1/${N}`,
+   'a reload agrees');
+await mdc.close();
+
 console.log('\n=== the shared file carries a bare media type ===');
 const mime = await browser.newContext({ permissions: ['microphone'],
   viewport: { width: 390, height: 844 } });

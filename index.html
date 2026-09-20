@@ -1079,6 +1079,13 @@
           say(c, "Nothing recorded \u2014 try again. If it happens twice, use your phone\u2019s voice memo app.");
           return;
         }
+        // A tap-and-release under a second is a mis-tap, not a take. Filing it
+        // would mark the question answered with nothing in it.
+        if (ms < 600) {
+          c.time.textContent = "";
+          say(c, "That was a tap, not a take \u2014 nothing kept. Tap Record, talk, then tap Stop.", "note");
+          return;
+        }
         var clip = { blob: blob, type: type, ms: ms,
                      silent: meterRan && !sawSound && ms > 1500, peak: peak };
         var added = addClip(id, clip);
@@ -1625,6 +1632,11 @@
     var dl = document.getElementById("downloadall");
     var db = document.getElementById("dropbox");
     var any = total > 0 || typedCount > 0;
+    // Nothing left to send means nothing left to say about sending.
+    if (!any) {
+      document.getElementById("sendall-err").hidden = true;
+      document.getElementById("dropbox-step").hidden = true;
+    }
     db.hidden = !any;
     sa.hidden = pending === 0 || !canShareFiles;
     sa.textContent = pending === 1 ? "Text it to Todd" : "Text all " + pending + " to Todd";
