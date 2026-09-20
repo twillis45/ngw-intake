@@ -505,7 +505,10 @@
 
   // Safari records mp4; Chrome/Firefox record webm. Ask, never assume.
   function pickMime() {
-    var want = ["audio/mp4", "audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus"];
+    // Chrome answers yes to "audio/mp4" but records Opus inside it, which no
+    // Apple player opens; an .m4a from an Android would arrive dead. Ask for
+    // webm first: Safari says no and lands on real AAC mp4, Chrome says yes.
+    var want = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus", "audio/mp4"];
     if (typeof MediaRecorder === "undefined" || !MediaRecorder.isTypeSupported) return "";
     for (var i = 0; i < want.length; i++) {
       if (MediaRecorder.isTypeSupported(want[i])) return want[i];
@@ -672,13 +675,15 @@
     });
     // Saved as he types. There is no Save button because a Save button is a
     // way to lose an answer.
-    var pending = null;
     ta.addEventListener("input", function () {
-      clearTimeout(pending);
+      clearTimeout(cards[q.id].typedTimer);
       state.hidden = false;
       state.textContent = "Saving\u2026";
       state.style.color = "var(--muted)";
-      pending = setTimeout(function () { saveTyped(q.id); }, 400);
+      cards[q.id].typedTimer = setTimeout(function () {
+        cards[q.id].typedTimer = null;
+        saveTyped(q.id);
+      }, 400);
     });
   });
 
@@ -700,6 +705,9 @@
   }
   function onToggle(id) {
     var c = cards[id];
+    // A tap on the row of the question that is recording would hide Stop,
+    // the timer and the meter while the mic stays hot. Reopen it.
+    if (!c.det.open && isLive(c)) { c.det.open = true; return; }
     c.card.classList.toggle("open", c.det.open);
     if (c.det.open) {
       Object.keys(cards).forEach(function (k) {
@@ -765,6 +773,7 @@
       tally();
       return;
     }
+    c.typedSent = false;
     put(textKey(id), { text: val, at: Date.now() }).then(function () {
       c.state.textContent = "Saved on this device";
       c.state.style.color = "var(--safe)";
@@ -772,12 +781,24 @@
     }).catch(function () {
       c.state.textContent = "Not saved \u2014 copy this somewhere before you close the page";
       c.state.style.color = "var(--crit)";
+      tally();
     });
   }
 
   function typedText(id) {
     var c = cards[id];
     return c && c.ta ? c.ta.value.trim() : "";
+  }
+  // A typed answer that went with a share sheet is marked like a clip is,
+  // and the mark persists. Editing the text afterwards clears it.
+  function markTypedSent(id) {
+    var c = cards[id];
+    c.typedSent = true;
+    put(textKey(id), { text: c.ta.value, at: Date.now(), sent: "shared" }).catch(function () {});
+    tally();
+  }
+  function typedPending() {
+    return Object.keys(cards).filter(function (id) { return typedText(id) && !cards[id].typedSent; }).length;
   }
 
   // ---- clips --------------------------------------------------------------
@@ -813,6 +834,7 @@
     rec.el = rowEl; rec.flag = flag; rec.delBtn = del;
 
     if (clip.sent) markSent(rec, clip.sent);
+    else if (clip.saved) { flag.hidden = false; flag.textContent = "Saved to phone"; flag.className = "flag local"; }
 
     send.addEventListener("click", function () { share(id, rec); });
 
@@ -829,25 +851,33 @@
     });
 
     c.card.classList.add("has-rec");
-    c.mic.textContent = "Add another";
+    if (!isLive(c)) c.mic.textContent = "Add another";
     c.time.textContent = "";
     c.time.classList.remove("live");
     tally();
     return rec;
   }
 
-  function markSent(rec, how) {
-    rec.flag.hidden = false;
-    if (how === "local") {
+  // Saved to the phone is a fact about the phone, not about Todd. It shows
+  // on the clip, it persists, and it never counts as sent: the clip stays in
+  // Send all until a share sheet resolves.
+  function markSaved(rec) {
+    rec.clip.saved = true;
+    if (!rec.clip.sent) {
+      rec.flag.hidden = false;
       rec.flag.textContent = "Saved to phone";
       rec.flag.className = "flag local";
-    } else {
-      // Never "Sent": the share promise resolves when the OS hands the file to
-      // an app, not when the message leaves. Claiming delivery here is the exact
-      // failure that loses an answer for good.
-      rec.flag.textContent = "Handed off";
-      rec.flag.className = "flag";
     }
+    tally();
+    put(rec.key, rec.clip).catch(function () {});
+  }
+  function markSent(rec, how) {
+    rec.flag.hidden = false;
+    // Never "Sent": the share promise resolves when the OS hands the file to
+    // an app, not when the message leaves. Claiming delivery here is the exact
+    // failure that loses an answer for good.
+    rec.flag.textContent = "Handed off";
+    rec.flag.className = "flag";
     rec.clip.sent = how;
     tally();
     // If the "sent" mark does not persist, Send all will offer this clip again
@@ -873,7 +903,7 @@
     del_(rec.key);
     if (!c.clips.length) {
       c.card.classList.remove("has-rec");
-      c.mic.textContent = "Record";
+      if (!isLive(c)) c.mic.textContent = "Record";
     }
     renumber(id);
     tally();
@@ -900,6 +930,7 @@
     var buf = new Uint8Array(an.fftSize), raf = null, on = true;
     function loop() {
       if (!on) return;
+      if (ctx.state !== "running") { raf = requestAnimationFrame(loop); return; }
       an.getByteTimeDomainData(buf);
       var sum = 0;
       for (var i = 0; i < buf.length; i++) { var v = (buf[i] - 128) / 128; sum += v * v; }
@@ -1051,6 +1082,7 @@
       }
 
       meter = startMeter(stream, function (lvl) {
+        meterStarted = true;                      // the context is running: frames arrive
         bar.style.width = Math.round(lvl * 100) + "%";
         if (Date.now() - t0 < 300) return;        // ignore the stream-open pop
         if (lvl > peak) peak = lvl;
@@ -1066,11 +1098,12 @@
         }
       });
       c.level.hidden = !meter;
-      meterStarted = !!meter;
+      // A suspended AudioContext reads as flat silence. Only frames from a
+      // running one count, so meterStarted is set by the first callback.
       // Tell him in four seconds, not after twenty minutes of talking.
       if (meter) {
         silenceWarn = setTimeout(function () {
-          if (sawSound || done) return;
+          if (sawSound || done || !meterStarted) return;
           c.err.dataset.silence = "1";
           say(c, "Your microphone isn\u2019t picking anything up \u2014 this is recording " +
                  "silence. Check which input device is selected in your system sound " +
@@ -1115,9 +1148,23 @@
   // handling: iOS suspends the tab on lock or app switch, and a MediaRecorder
   // suspended mid-recording is an answer lost with no error anywhere. So stop
   // it while the page is still alive — onstop files what he already said.
+  // The same moment can leave a typed sentence sitting in a 400ms timer that
+  // iOS will freeze. Flush every pending save while the page is still alive.
+  function flushTyped() {
+    Object.keys(cards).forEach(function (id) {
+      if (cards[id].typedTimer) {
+        clearTimeout(cards[id].typedTimer);
+        cards[id].typedTimer = null;
+        saveTyped(id);
+      }
+    });
+  }
   document.addEventListener("visibilitychange", function () {
-    if (document.visibilityState === "hidden" && current) current.stop();
+    if (document.visibilityState !== "hidden") return;
+    if (current) current.stop();
+    flushTyped();
   });
+  window.addEventListener("pagehide", flushTyped);
 
   // A tab discarded mid-recording takes the whole answer with it.
   window.addEventListener("beforeunload", function (e) {
@@ -1194,15 +1241,16 @@
   }
 
   // Typed answers travel as their own text files, named for the question.
-  function typedFiles() {
+  function typedFiles(unsentOnly) {
     var out = [];
     if (!window.TextEncoder) return out;
     var enc = new TextEncoder();
     Object.keys(cards).forEach(function (id) {
       var t = typedText(id);
       if (!t) return;
+      if (unsentOnly && cards[id].typedSent) return;
       var body = typedBody(id, t);
-      out.push({ name: "cory-" + id + "-typed.txt", bytes: enc.encode(body) });
+      out.push({ id: id, name: "cory-" + id + "-typed.txt", bytes: enc.encode(body) });
     });
     return out;
   }
@@ -1246,14 +1294,13 @@
   // Everything on the page as one zip. Both routes out of the page (Downloads,
   // Todd's drop box) start here; nothing else builds an archive.
   function packEverything() {
-    var items = allClips();
-    if (!items.length) {
-      items = [];
-      Object.keys(cards).forEach(function (id) {
-        cards[id].clips.forEach(function (rec, i) { items.push({ id: id, rec: rec, n: i + 1 }); });
-      });
-    }
-    var typedNow = typedFiles();
+    // Everything, sent or not: a file named "all" that holds the unsent half
+    // is a file he will send twice and trust once.
+    var items = [];
+    Object.keys(cards).forEach(function (id) {
+      cards[id].clips.forEach(function (rec, i) { items.push({ id: id, rec: rec, n: i + 1 }); });
+    });
+    var typedNow = typedFiles(false);
     // An answer he typed is an answer. Counting only recordings here meant a
     // typed-only page produced nothing at all when he pressed send.
     if (!items.length && !typedNow.length) return null;
@@ -1277,7 +1324,7 @@
       typedNow.forEach(function (f) { entries.push(f); });
       var zip = makeZip(entries);
       saveBlob(zip, "cory-outreach-answers.zip");
-      items.forEach(function (it) { markSent(it.rec, "local"); });
+      items.forEach(function (it) { markSaved(it.rec); });
       return { entries: entries, items: items };
     });
   }
@@ -1399,14 +1446,15 @@
     var errEl = document.getElementById("sendall-err");
     errEl.hidden = true;
     var items = allClips();
-    if (!items.length && !typedFiles().length) return;
+    var typedNow = typedFiles(true);
+    if (!items.length && !typedNow.length) return;
 
     var files = [];
     try {
       items.forEach(function (it) {
         var a = fileFor(it.id, it.rec); if (a) files.push(a);
       });
-      typedFiles().forEach(function (t) {
+      typedNow.forEach(function (t) {
         try { files.push(new File([t.bytes], t.name, { type: "text/plain" })); } catch (e) {}
       });
     } catch (e) { files = []; }
@@ -1420,6 +1468,7 @@
           // One resolve cannot vouch for thirteen files individually, so the
           // badge says handed off, and the line below says check.
           items.forEach(function (it) { markSent(it.rec, "shared"); });
+          typedNow.forEach(function (t) { markTypedSent(t.id); });
           errEl.className = "note";
           errEl.textContent = "Handed to your share sheet \u2014 check the message actually went.";
           errEl.hidden = false;
@@ -1484,27 +1533,27 @@
     budget();
     whisper();
     var typedCount = ids.filter(function (i) { return !!typedText(i); }).length;
-    var pending = allClips().length;
+    var unsent = allClips();
+    var pending = unsent.length + typedPending();
     // "Saved to phone" is not "sent": a zip in his Downloads has not reached
     // anyone. The line says which of the two he is looking at.
-    var onlyLocal = ids.every(function (i) {
-      return cards[i].clips.every(function (r) { return r.clip.sent !== "shared"; });
-    });
+    var allSaved = unsent.length > 0 && unsent.every(function (it) { return it.rec.clip.saved; });
     // UX_06: a status says what it means for him, not just its own number.
     document.getElementById("tally").textContent =
-      total === 0 && typedCount ? typedCount + " typed answer" + (typedCount === 1 ? "" : "s") +
+      total === 0 && typedCount && pending ? typedCount + " typed answer" + (typedCount === 1 ? "" : "s") +
         " saved on this device, ready to send."
+      : total === 0 && typedCount ? "Everything here has been handed off."
       : total === 0 ? "Nothing recorded or typed on this page yet."
-      : pending === 0 && onlyLocal ? "Everything is in one file on this phone. It still has to reach Todd: " +
+      : allSaved ? "Everything is in one file on this phone. It still has to reach Todd: " +
         "the drop box, or a text."
-      : pending === 0 ? "Everything recorded here has been handed off."
-      : pending + (pending === 1 ? " recording" : " recordings") + " still to send.";
+      : pending === 0 ? "Everything here has been handed off."
+      : pending + (pending === 1 ? " answer" : " answers") + " still to send.";
     var sa = document.getElementById("sendall");
     var dl = document.getElementById("downloadall");
     var db = document.getElementById("dropbox");
     var any = total > 0 || typedCount > 0;
     db.hidden = !any;
-    sa.hidden = (pending === 0 && typedCount === 0) || !canShareFiles;
+    sa.hidden = pending === 0 || !canShareFiles;
     sa.textContent = pending === 1 ? "Text it to Todd" : "Text all " + pending + " to Todd";
     dl.hidden = !any;
     // Where sharing works the zip is the fallback; where it does not, it is
@@ -1546,11 +1595,13 @@
           cards[tid].typeBtn.textContent = "Hide the typing box";
           cards[tid].state.hidden = false;
           cards[tid].state.textContent = "Saved on this device";
+          cards[tid].typedSent = saved[key].sent === "shared";
         }
         return;
       }
       var id = key.split("::")[0];
-      if (cards[id] && saved[key] && saved[key].blob) addClip(id, saved[key], key);
+      if (!cards[id]) { del_(key); return; }       // a question this build no longer has
+      if (saved[key] && saved[key].blob) addClip(id, saved[key], key);
       else document.getElementById("restorefail").hidden = false;
     });
     tally();

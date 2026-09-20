@@ -224,6 +224,10 @@ await tap(page, 'q5', { force: true }).catch(() => {});
 await page.waitForTimeout(900);
 ok((await page.locator('#mic-q2').textContent()) === 'Stop', 'q2 still recording, not orphaned');
 ok(await isOpen(card(1)), 'a recording question is never folded away by opening another');
+await card(1).locator('summary').click();
+await page.waitForTimeout(60);
+ok((await isOpen(card(1))) && await page.locator('#mic-q2').isVisible(),
+   'nor by a tap on its own row: Stop stays on screen while the mic is hot');
 const t = await card(1).locator('.time').first().textContent();
 ok(/^0:0[0-9]$/.test(t), `q2 timer still running (${t})`);
 await tap(page, 'q2');
@@ -324,6 +328,21 @@ ok(/nothing has been sent yet/.test(await card(1).locator('.note').first().textC
    'the note is conditional about the save and flat about the send');
 ok((await page.locator('#sendall').textContent()) === 'Text all 3 to Todd',
    'a download did not quietly count as sent');
+
+console.log('\n=== the zip holds everything and hands nothing off ===');
+const [allzip] = await Promise.all([page.waitForEvent('download'), page.locator('#downloadall').click()]);
+await page.waitForTimeout(600);
+ok(allzip.suggestedFilename() === 'cory-outreach-answers.zip', 'one file');
+ok(/Saved one file with 4 items/.test(await page.locator('#sendall-err').textContent()),
+   'it holds all four recordings, the one already handed off included');
+ok((await page.locator('#sendall').textContent()) === 'Text all 3 to Todd',
+   'and Send all still offers the three that have not gone');
+ok((await card(0).locator('.clip').first().locator('.flag').textContent()) === 'Handed off',
+   'a handed-off clip keeps its badge');
+ok((await card(1).locator('.clip').first().locator('.flag').textContent()) === 'Saved to phone',
+   'an unsent one says saved to phone');
+ok(/still has to reach Todd/.test(await page.locator('#tally').textContent()),
+   'and the tally says the file has not reached anyone');
 
 console.log('\n=== a clip that cannot be restored is never silent ===');
 await page.evaluate(() => new Promise((res, rej) => {
@@ -573,6 +592,8 @@ for (let i = 0; i < count; i++) {
   zipNames.push(zb.toString('utf8', o + 46, o + 46 + nlen));
   o += 46 + nlen + zb.readUInt16LE(o + 30) + zb.readUInt16LE(o + 32);
 }
+ok(zipNames.every((n) => !n.endsWith('.m4a')),
+   `Chrome never ships Opus inside an .m4a (${zipNames.join(', ')})`);
 ok(zipNames.filter((n) => n.endsWith('.m4a') || n.endsWith('.webm')).length === 2 &&
    zipNames.filter((n) => n.endsWith('.txt')).length === 0,
    `the audio travels and nothing else is invented beside it (${zipNames.join(', ')})`);
@@ -615,6 +636,86 @@ ok(await yp.locator('#sendall').isVisible(), 'the share route leads where it exi
 ok(await yp.locator('#downloadall').evaluate((e) => e.className === 'second'),
    'and the one-file route steps back to secondary');
 await yesshare.close();
+
+console.log('\n=== typed answers are counted, sent and marked like clips ===');
+const tsc = await browser.newContext({ permissions: ['microphone'], viewport: { width: 390, height: 844 } });
+await tsc.addInitScript(() => {
+  Object.defineProperty(navigator, 'canShare', { value: () => true, configurable: true });
+  Object.defineProperty(navigator, 'share', { value: () => Promise.resolve(), configurable: true });
+});
+const ts = await tsc.newPage();
+await ts.goto('http://localhost:8731/', { waitUntil: 'load' });
+await ts.locator('article.q').first().locator('button.typebtn').click();
+await ts.locator('#text-q1').fill('The facility manager signs off.');
+await ts.waitForTimeout(900);
+ok(await ts.locator('#sendall').isVisible() && (await ts.locator('#sendall').textContent()) === 'Text it to Todd',
+   'one typed answer is one thing to send, and the button says so');
+await ts.locator('#sendall').click();
+await ts.waitForTimeout(500);
+ok(await ts.locator('#sendall').isHidden(), 'once it went, nothing is offered again');
+ok(/handed off/.test(await ts.locator('#tally').textContent()), 'and the tally says it went');
+await ts.reload({ waitUntil: 'load' });
+await ts.waitForTimeout(1300);
+ok(await ts.locator('#sendall').isHidden(), 'the mark survives a reload');
+await ts.locator('article.q').first().locator('summary').click();
+await ts.waitForTimeout(60);
+await ts.locator('#text-q1').fill('The facility manager signs off, and staffing decides.');
+await ts.waitForTimeout(900);
+ok(await ts.locator('#sendall').isVisible(), 'editing the answer makes it sendable again');
+
+console.log('\n=== a typed sentence is saved when the page goes away ===');
+await ts.locator('#text-q1').fill('The facility manager signs off, and staffing decides, always.');
+await ts.evaluate(() => {
+  Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+  document.dispatchEvent(new Event('visibilitychange'));
+});
+const stored = await ts.evaluate(() => new Promise((res) => {
+  const r = indexedDB.open('ngw-voice-brief', 1);
+  r.onsuccess = () => {
+    const g = r.result.transaction('clips').objectStore('clips').get('text::q1');
+    g.onsuccess = () => res(g.result && g.result.text);
+  };
+}));
+ok(stored === 'The facility manager signs off, and staffing decides, always.',
+   'the 400ms timer is flushed on hide, not left for iOS to freeze');
+await tsc.close();
+
+console.log('\n=== a key from a question this build no longer has ===');
+const orph = await browser.newContext({ permissions: ['microphone'], viewport: { width: 390, height: 844 } });
+const op = await orph.newPage();
+await op.goto('http://localhost:8731/', { waitUntil: 'load' });
+await op.evaluate(() => new Promise((res) => {
+  const r = indexedDB.open('ngw-voice-brief', 1);
+  r.onsuccess = () => {
+    const tx = r.result.transaction('clips', 'readwrite');
+    tx.objectStore('clips').put({ blob: new Blob([new Uint8Array(64)]), type: 'audio/webm', ms: 900 }, 'q99::1');
+    tx.oncomplete = res;
+  };
+}));
+await op.reload({ waitUntil: 'load' });
+await op.waitForTimeout(1300);
+ok(await op.locator('#restorefail').isHidden(), 'it is not reported as a broken recording');
+const gone = await op.evaluate(() => new Promise((res) => {
+  const r = indexedDB.open('ngw-voice-brief', 1);
+  r.onsuccess = () => { const g = r.result.transaction('clips').objectStore('clips').get('q99::1'); g.onsuccess = () => res(g.result === undefined); };
+}));
+ok(gone, 'and it is cleared rather than reported forever');
+await orph.close();
+
+console.log('\n=== the live button keeps its label ===');
+const lbl = await browser.newContext({ permissions: ['microphone'], viewport: { width: 390, height: 844 } });
+const lp = await lbl.newPage();
+await lp.goto('http://localhost:8731/', { waitUntil: 'load' });
+await tap(lp, 'q1'); await lp.waitForTimeout(1100); await tap(lp, 'q1'); await lp.waitForTimeout(800);
+await tap(lp, 'q1'); await lp.waitForTimeout(400);
+ok((await lp.locator('#mic-q1').textContent()) === 'Stop', 'second take: the button reads Stop');
+const del2 = lp.locator('article.q').first().locator('.clip').first().locator('button.danger');
+await del2.click(); await del2.click(); await lp.waitForTimeout(300);
+ok((await lp.locator('#mic-q1').textContent()) === 'Stop',
+   'deleting the earlier take while recording does not relabel the live button');
+await tap(lp, 'q1'); await lp.waitForTimeout(900);
+ok((await lp.locator('article.q').first().locator('.clip').count()) === 1, 'and the new take files');
+await lbl.close();
 
 console.log('\n=== the drop-box route: one zip, one more tap ===');
 const dbx = await browser.newContext({ permissions: ['microphone'],
