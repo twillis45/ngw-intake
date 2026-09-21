@@ -96,7 +96,7 @@ const record = async (id, ms) => {
 const card = (n) => page.locator('article.q').nth(n);
 // The count the page promises in its header and ledger. One place, so adding
 // a question is a one-line change here and the rest of the run follows.
-const N = 22;
+const N = 20;
 
 console.log('\n=== at rest ===');
 ok((await page.locator('article.q').count()) === N, `${N} question cards`);
@@ -115,6 +115,11 @@ ok((await page.locator('article.q.open').count()) === 1 && await isOpen(card(0))
    'exactly one question is open at rest, and it is the first');
 ok(/Start with 01/.test(await page.locator('#next').textContent()),
    'the whisper says where to start');
+// A stale copy on a phone is the hardest bug to see, so the page states which
+// build it is and how many questions that build carries.
+const build = await page.locator('#build').textContent();
+ok(new RegExp(`${N} questions`).test(build), `the build stamp names the question count (${build})`);
+ok(/\d{4}/.test(build), 'and the date it was published');
 ok(!(await page.locator('#mic-q4').isVisible()) && !(await card(3).locator('.why').isVisible()),
    'a closed question shows its line and nothing else');
 ok(await card(3).locator('summary').evaluate((s) => s.getBoundingClientRect().height >= 44),

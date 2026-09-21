@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#070809">
+<meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <title>Outreach Voice Brief</title>
 <style>
   /* Studio Matte. Tokens are transcribed from the binding source —
@@ -257,6 +258,10 @@
      target. This gap absorbs the top overhang so it lands in empty space
      rather than over the line above. */
   .contact { font-size: 14px; color: var(--fg-2); margin: 8px 0 0; }
+  /* Whether this is the current page should be answerable by looking at it,
+     not by guessing whether a phone cached the old one. */
+  .build { font-size: 11px; color: var(--muted); margin: 12px 0 0;
+           font-variant-numeric: tabular-nums; }
   /* The escape hatch has to be hittable. As inline text these measured
      89x15px — the buttons all clear 44px and this did not, on the one link
      that exists for when something has gone wrong. Padding grows the target;
@@ -310,11 +315,11 @@
   <div class="rail">
     <header>
       <h1>Talk or type</h1>
-      <p class="sub">22 questions · any order · talk or type</p>
+      <p class="sub">20 questions · any order · talk or type</p>
     </header>
 
     <div class="ledger">
-      <div class="fig"><span class="n" id="fig-answered">0/22</span><span class="label">Answered</span></div>
+      <div class="fig"><span class="n" id="fig-answered">0/20</span><span class="label">Answered</span></div>
       <div class="fig"><span class="n" id="fig-clips">0</span><span class="label">Recordings</span></div>
     </div>
     <p class="whisper" id="next">Start with 01, or tap any question to open it.</p>
@@ -375,6 +380,7 @@
         of the way.</p>
       <p class="contact">Stuck, or something looks wrong? Text me &mdash;
         <a id="contact-me" href="sms:+12404325650">(240)&nbsp;432-5650</a></p>
+      <p class="build" id="build">Page of 21 September 2026 · 20 questions</p>
     </div>
   </main>
 
@@ -466,8 +472,8 @@
 
   var QUESTIONS = [
     { group: "If you only do three", big: true, id: "q1",
-      ask: "Who actually says yes when a controller travels to speak?",
-      why: "Supervisor, facility, someone national? This one shapes the build more than any other." },
+      ask: "What’s the travel budget for a year, and who sets it?",
+      why: "A ballpark is fine. It’s the one thing that limits how many visits you can do, so it shapes this more than anything else." },
     { big: true, id: "q2",
       ask: "Walk me through one visit, start to finish.",
       why: "Three short ones is easiest: <b>getting to the day</b>, <b>the day</b>, <b>after</b>." },
@@ -476,11 +482,11 @@
       why: "Speaker pulled, empty room, dead AV, ghosted. What happened, what you did." },
 
     { group: "People", id: "q4",
-      ask: "How do you find controllers willing to go?",
-      why: "Same handful every time?" },
+      ask: "How many controllers are dedicated to this, and what else fills their week?",
+      why: "I hear they’re not working positions any more. I want the size of the bench, and what else it does." },
     { id: "q5",
-      ask: "What happens when a speaker gets pulled a week out?",
-      why: "What you actually do, not what you wish you did." },
+      ask: "What happens to a trip already booked when the money gets tight?",
+      why: "Cancel, postpone, go anyway? What you actually do, not what you wish you did." },
     { id: "q6",
       ask: "Who fills the room on their side?",
       why: "Career office, a friendly professor, an organizer? Ever the wrong crowd?" },
@@ -525,18 +531,11 @@
       why: "Outlook, Teams, Excel? What can you install? And is 9-ATO-ATCTI@FAA.GOV yours to set a forwarding rule on?" },
 
     { group: "Just type these", id: "q19",
-      ask: "Home airport, the cities you fly to most, and the Australian city in October.",
-      why: "Three lines. They finish the fare and per diem checks." },
+      ask: "Home airport, and the cities you fly to most.",
+      why: "Two lines. They finish the fare and per diem checks." },
     { id: "q20",
       ask: "Which schools on the FAA’s map are you actually in touch with?",
-      why: "It lists 39 and marks the Enhanced ones, so I only need the live ones. I’ll send it; mark it up, or name them here." },
-
-    { group: "Australia in October", id: "q21",
-      ask: "Who’s hosting, what do they want from you, and for how many days?",
-      why: "The host, the format, the dates. That sets the arrival buffer and how many nights the authorization has to cover." },
-    { id: "q22",
-      ask: "What has getting approved for it taken so far?",
-      why: "Official passport or regular, visa or ETA, who signed, how long each step took, and whether October 1 funding changes anything. Whatever you’ve been told, in your words." }
+      why: "It lists 39 and marks the Enhanced ones, so I only need the live ones. I’ll send it; mark it up, or name them here." }
   ];
   // ---- capability checks, before any UI promises recording ----------------
   var canRecord =
