@@ -195,7 +195,7 @@ for (const r of results) {
   if (starts > 20) issues.push(`${r.qid}: recogniser restarted ${starts} times in one recording`);
   if (errs.length) console.log(`      errors: ${errs.join(' | ')}`);
   console.log(`      spoken:     "${r.a.text.slice(0, 90)}${r.a.text.length > 90 ? '...' : ''}"`);
-  console.log(`      recognised: ${best ? '"' + best.text.slice(0, 90) + '"' : '(nothing)'}`);
+  console.log(`      recognized: ${best ? '"' + best.text.slice(0, 90) + '"' : '(nothing)'}`);
   console.log(`      on the clip: ${r.got.transcript ? '"' + r.got.transcript.slice(0, 70) + '..."' : '(no transcript block)'}`);
 }
 

@@ -218,7 +218,7 @@ const steal = await page.evaluate(() => {
   return el.closest('.sign') ? 'ok'
        : 'the link reaches ' + Math.round(sign.bottom - link.top) + 'px into .sign';
 });
-check('3.4c', 'The enlarged target steals no taps from neighbouring text',
+check('3.4c', 'The enlarged target steals no taps from neighboring text',
       steal === 'ok', steal);
 
 const aboveFold = await page.evaluate(() => {

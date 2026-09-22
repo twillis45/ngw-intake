@@ -47,7 +47,7 @@ const DICTATION = () => {
     { at: 2300, interim: 'the facility manager is the one who signs' },
     { at: 2700, final:   'The facility manager is the one who signs off, and it always comes down to staffing on the day. ' },
     { at: 3300, interim: 'so if they are short that week' },
-    { at: 3800, final:   'So if they are short that week we are not travelling, no matter what I already booked.' },
+    { at: 3800, final:   'So if they are short that week we are not traveling, no matter what I already booked.' },
   ];
   function Fake() {
     this.continuous = false; this.interimResults = false; this.lang = 'en-US';
@@ -56,7 +56,7 @@ const DICTATION = () => {
   Fake.prototype.start = function () {
     window.__srLog.push('start');
     // Per spec, each session gets a fresh SpeechRecognitionResultList — a
-    // restart does NOT replay earlier finals. Modelling that faithfully is
+    // restart does NOT replay earlier finals. Modeling that faithfully is
     // what makes the accumulation bug visible rather than invented.
     this._finals = [];
     const t0 = Date.now();

@@ -24,7 +24,7 @@ const WAV = path.join(os.tmpdir(), 'walk.wav'); fs.writeFileSync(WAV, d);
 const SPEECH = {
   q1: ['So the way this actually works is the controller has to be released by their facility first. ',
        'The facility manager is the one who signs off on it, and it always comes down to staffing and coverage on the day. ',
-       'So if they are short that week we are not travelling, no matter what I have already booked.'],
+       'So if they are short that week we are not traveling, no matter what I have already booked.'],
   q3: ['The worst one was a career fair in Ohio where the speaker got pulled two days out. ',
        'I ended up doing the whole thing myself off a borrowed laptop, because the school had already printed the flyers. ',
        'Now I never confirm a date until I have a second controller who can cover it.'],

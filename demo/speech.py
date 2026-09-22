@@ -26,7 +26,7 @@ POOLS = {
         ["It always comes down to staffing and coverage on the day.",
          "Coverage on the day decides it, every single time.",
          "If they are short that week the answer is no."],
-        ["So if they are short we are not travelling, no matter what I already booked.",
+        ["So if they are short we are not traveling, no matter what I already booked.",
          "I have had to cancel on a school twice because of that.",
          "That is the part schools never understand about our side."],
     ],
@@ -42,7 +42,7 @@ POOLS = {
          "I presented alone and the AV did not work either,"],
         ["because the school had already printed the flyers.",
          "because two hundred students were already signed up.",
-         "because cancelling would have burned the relationship."],
+         "because canceling would have burned the relationship."],
         ["Now I never confirm a date until I have a second controller who can cover.",
          "Since then I always line up a backup before I say yes.",
          "That is why I hold dates loosely until the travel is approved."],
@@ -98,7 +98,7 @@ def speak(text, path, rate=48000, wpm=150, voice="en-us"):
     if ch != 1:
         frames = audioop.tomono(frames, width, 0.5, 0.5)
     frames, _ = audioop.ratecv(frames, width, 1, src, rate, None)
-    # Normalise to -3 dBFS. espeak plus resampling overshoots into clipping,
+    # Normalize to -3 dBFS. espeak plus resampling overshoots into clipping,
     # and a clipped fixture makes a clean recording look distorted — the test
     # would then be measuring the generator, not the recorder.
     peak = audioop.max(frames, width)
