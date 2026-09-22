@@ -51,6 +51,49 @@ request then takes up to a minute. The page pings `/health` as soon as it
 loads with a passcode, so the relay is usually awake by the time he taps
 send, and the page says "the first one can take a minute" while it waits.
 
+## Getting told when one lands
+
+The relay is the thing doing the upload, so it knows the moment a file
+lands. Set `NOTIFY_URL` and it POSTs a notification; leave it unset and it
+posts nothing, because a live service must not start calling a new host
+just because it was redeployed.
+
+| Variable | |
+|---|---|
+| `NOTIFY_URL` | Where to post. Unset means off. |
+| `NOTIFY_STYLE` | `json` (default) or `ntfy`. |
+| `NOTIFY_SECRET` | Optional. Signs the body as `X-Relay-Signature: sha256=…`. |
+| `NOTIFY_TIMEOUT_MS` | Optional, defaults to 5000. |
+
+The notification can never affect the upload. The receipt goes out first,
+the notify call sits outside the upload's error path, and every failure
+ends as a log line. A notification that 500s, hangs, or points at a host
+that no longer resolves changes nothing the page was told.
+
+Nothing secret is ever sent: no passcode, no token, no app secret. The
+relay exists so the page never holds a credential, and a webhook is one
+more place one could leak to.
+
+### To a phone, with ntfy
+
+Install [ntfy](https://ntfy.sh) on the phone, subscribe to one long random
+topic, and set `NOTIFY_URL` to `https://ntfy.sh/THAT-TOPIC` with
+`NOTIFY_STYLE=ntfy`. The phone buzzes with:
+
+> **New intake recording**
+> A recording landed — 2.0 MB. Open Dropbox to hear it.
+
+**The topic name is the only secret.** Anyone who learns it can read
+everything sent to that topic, and the public server caches messages for
+hours. So treat the topic like the passcode: long, random, never in a
+commit, never in a screenshot.
+
+That is also why the ntfy message names no file and no folder. A file name
+and a Dropbox path both spell out whose recording it is; a size does not,
+and the next move is the same either way — open Dropbox. Run your own ntfy
+server, or put a private receiver in front, and `NOTIFY_STYLE=json` gives
+back the full record.
+
 ## What the relay refuses
 
 Any origin but the page's, any request without the passcode, an empty

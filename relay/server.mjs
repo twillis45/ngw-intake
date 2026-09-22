@@ -27,6 +27,7 @@ const CONTENT_BASE = env.DROPBOX_CONTENT_BASE || "https://content.dropboxapi.com
 const NOTIFY_URL = env.NOTIFY_URL || "";
 const NOTIFY_SECRET = env.NOTIFY_SECRET || "";
 const NOTIFY_TIMEOUT_MS = Number(env.NOTIFY_TIMEOUT_MS) || 5000;
+const NOTIFY_STYLE = (env.NOTIFY_STYLE || "json").trim().toLowerCase();
 
 const missing = ["DROPBOX_APP_KEY", "DROPBOX_APP_SECRET", "DROPBOX_REFRESH_TOKEN", "RELAY_PASSCODE"]
   .filter((k) => !env[k]);
@@ -100,18 +101,57 @@ async function putInDropbox(name, bytes) {
 // this runs AFTER the receipt has been sent and every failure is swallowed
 // into a log line. The page's answer is settled before this is called.
 //
-// What is sent is what Todd already owns: the stored name, its Dropbox path,
-// its size and the time. No passcode, no token, no app secret — the relay
-// exists so the page never holds a credential, and a webhook is another place
-// one could leak to.
+// At most, what is sent is what the owner already has: the stored name, its
+// Dropbox path, its size and the time. Never a passcode, a token or an app
+// secret — the relay exists so the page never holds a credential, and a
+// webhook is another place one could leak to. NOTIFY_STYLE decides how much
+// of that record actually goes out; see shape().
 //
-// NOTIFY_SECRET is optional and signs the body, so the receiving end can tell
-// a real notification from anyone who guessed the URL. Without it the endpoint
-// has to trust its own obscurity, which is a choice, not a default.
+// NOTIFY_SECRET is optional and signs the body that is actually sent, so a
+// receiving end that checks it can tell a real notification from anyone who
+// guessed the URL. Without it the endpoint has to trust its own obscurity,
+// which is a choice, not a default. Public ntfy.sh does not check it — the
+// header rides along for a private receiver or a proxy that does.
+// A size a person reads, not a byte count they have to divide.
+export function humanSize(n) {
+  if (!Number.isFinite(n) || n < 0) return "unknown size";
+  if (n >= 1048576) return (n / 1048576).toFixed(1) + " MB";
+  if (n >= 1024) return Math.round(n / 1024) + " KB";
+  return n + (n === 1 ? " byte" : " bytes");
+}
+
+// How the far end wants to be told.
+//
+//   json  (default) — the whole record, for a service that will parse it.
+//   ntfy            — one sentence a phone can show on a lock screen.
+//
+// The ntfy message deliberately carries NO file name and NO Dropbox path. On
+// the public ntfy.sh server the topic name is the only secret, messages are
+// cached there for hours, and anyone who learns the topic reads everything
+// sent to it. The name and the path both spell out whose recording this is;
+// the size does not, and the action is the same either way — open Dropbox.
+// Self-host ntfy, or point a private receiver at it, and NOTIFY_STYLE=json
+// gives back the full record.
+export function shape(payload) {
+  if (NOTIFY_STYLE !== "ntfy") {
+    return { body: JSON.stringify(payload), headers: { "Content-Type": "application/json" } };
+  }
+  return {
+    // Every header value here is a literal. Nothing from the upload reaches a
+    // header, so there is no newline for a crafted file name to inject with.
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Title": "New intake recording",
+      "Priority": "default",
+      "Tags": "inbox_tray",
+    },
+    body: "A recording landed — " + humanSize(payload.size) + ". Open Dropbox to hear it.",
+  };
+}
+
 export async function notify(payload) {
   if (!NOTIFY_URL) return { sent: false, reason: "no NOTIFY_URL" };
-  const body = JSON.stringify(payload);
-  const headers = { "Content-Type": "application/json" };
+  const { body, headers } = shape(payload);
   if (NOTIFY_SECRET) {
     headers["X-Relay-Signature"] =
       "sha256=" + crypto.createHmac("sha256", NOTIFY_SECRET).update(body).digest("hex");

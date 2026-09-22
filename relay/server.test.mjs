@@ -46,7 +46,8 @@ const fake = http.createServer(async (req, res) => {
   if (req.url === "/2/files/upload_session/start") return j({ session_id: "S1" });
   if (req.url === "/2/files/upload_session/append_v2") return j({});
   if (req.url === "/notify") {
-    notified.push({ body: body.toString(), sig: req.headers["x-relay-signature"], ct: req.headers["content-type"] });
+    notified.push({ body: body.toString(), sig: req.headers["x-relay-signature"], ct: req.headers["content-type"],
+                    title: req.headers["title"], priority: req.headers["priority"], tags: req.headers["tags"] });
     if (notifyMode === "hang") return;                 // never answers
     if (notifyMode === "500") { res.writeHead(500); return res.end("no"); }
     return j({ ok: true });
@@ -232,6 +233,68 @@ test("with no NOTIFY_URL the relay posts nothing at all", async () => {
   const out = await notify({ event: "upload" });
   assert.deepEqual(out, { sent: false, reason: "no NOTIFY_URL" });
   assert.equal(notified.length, before, "something was posted with NOTIFY_URL unset");
+});
+
+test("NOTIFY_STYLE=ntfy sends a sentence a phone can show, naming nobody", async () => {
+  // A second relay, because the style is read once at start — which is the
+  // point: a running service does not change how it talks mid-flight.
+  notifyMode = "ok";
+  notified.length = 0;
+  const PORT3 = PORT + 2;
+  const ntfy = spawn(process.execPath, [fileURLToPath(new URL("./server.mjs", import.meta.url))], {
+    env: { ...process.env, PORT: String(PORT3), DROPBOX_APP_KEY: "k", DROPBOX_APP_SECRET: "s",
+           DROPBOX_REFRESH_TOKEN: "r", RELAY_PASSCODE: "open-sesame", ALLOWED_ORIGIN: "https://twillis45.github.io",
+           DROPBOX_FOLDER: "/Cory outreach recordings/", DROPBOX_OAUTH_BASE: FAKE, DROPBOX_CONTENT_BASE: FAKE,
+           NOTIFY_URL: FAKE + "/notify", NOTIFY_SECRET: "sign-me", NOTIFY_TIMEOUT_MS: "400",
+           NOTIFY_STYLE: "ntfy" },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  try {
+    const BASE = "http://127.0.0.1:" + PORT3;
+    for (let i = 0; i < 50; i++) { try { if ((await fetch(BASE + "/health")).ok) break; } catch {} await new Promise((r) => setTimeout(r, 100)); }
+    const r = await fetch(BASE + "/upload?name=cory-outreach-answers.zip", {
+      method: "POST",
+      headers: { Origin: "https://twillis45.github.io", "X-Passcode": "open-sesame", "Content-Type": "application/zip" },
+      body: Buffer.alloc(2 * 1048576, 7),
+    });
+    assert.equal(r.status, 200);
+    assert.ok(await settle(1), "nothing was posted to NOTIFY_URL");
+
+    const [n] = notified;
+    assert.match(n.ct, /^text\/plain/);
+    assert.equal(n.title, "New intake recording");
+    assert.equal(n.tags, "inbox_tray");
+    assert.equal(n.body, "A recording landed — 2.0 MB. Open Dropbox to hear it.");
+
+    // The topic is the only secret on public ntfy.sh and it caches what it is
+    // sent, so the message must not spell out whose recording this is. The
+    // file name and the Dropbox path both do; the size does not.
+    for (const leak of ["cory", "Cory", "outreach", "Dropbox recordings", "/Cory"]) {
+      assert.ok(!n.body.includes(leak), "the ntfy message leaks " + leak);
+    }
+    assert.ok(!/[\r\n]/.test(n.title), "a header value carries a newline");
+
+    // Signed anyway: public ntfy ignores it, a private receiver can check it.
+    assert.equal(n.sig, "sha256=" + crypto.createHmac("sha256", "sign-me").update(n.body).digest("hex"));
+  } finally {
+    ntfy.kill();
+  }
+});
+
+test("a size reads as a size, at every scale and at the edges", async () => {
+  const { humanSize } = await import("./server.mjs");
+  assert.equal(humanSize(0), "0 bytes");
+  assert.equal(humanSize(1), "1 byte");
+  assert.equal(humanSize(999), "999 bytes");
+  assert.equal(humanSize(1023), "1023 bytes");
+  assert.equal(humanSize(1024), "1 KB");
+  assert.equal(humanSize(1048575), "1024 KB");
+  assert.equal(humanSize(1048576), "1.0 MB");
+  assert.equal(humanSize(4404019), "4.2 MB");
+  // A missing or nonsense size says so rather than printing "NaN MB".
+  assert.equal(humanSize(undefined), "unknown size");
+  assert.equal(humanSize(NaN), "unknown size");
+  assert.equal(humanSize(-1), "unknown size");
 });
 
 test.after(() => { relay.kill(); fake.close(); });
