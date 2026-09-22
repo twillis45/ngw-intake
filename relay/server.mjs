@@ -22,6 +22,12 @@ const CHUNK_BYTES = Number(env.CHUNK_BYTES) || 8 * 1024 * 1024;
 const OAUTH_BASE = env.DROPBOX_OAUTH_BASE || "https://api.dropboxapi.com";
 const CONTENT_BASE = env.DROPBOX_CONTENT_BASE || "https://content.dropboxapi.com";
 
+// Telling someone a file landed. Off unless NOTIFY_URL is set, because a live
+// service must not change behavior just because it was redeployed.
+const NOTIFY_URL = env.NOTIFY_URL || "";
+const NOTIFY_SECRET = env.NOTIFY_SECRET || "";
+const NOTIFY_TIMEOUT_MS = Number(env.NOTIFY_TIMEOUT_MS) || 5000;
+
 const missing = ["DROPBOX_APP_KEY", "DROPBOX_APP_SECRET", "DROPBOX_REFRESH_TOKEN", "RELAY_PASSCODE"]
   .filter((k) => !env[k]);
 
@@ -85,6 +91,41 @@ async function putInDropbox(name, bytes) {
   const last = bytes.subarray(offset);
   return content("/2/files/upload_session/finish",
     { cursor: { session_id: start.session_id, offset }, commit }, last, token);
+}
+
+// ---- telling someone it landed -----------------------------------------
+//
+// The upload is the product. A notification that fails, hangs, 500s or points
+// at a host that no longer exists must never change what the page was told, so
+// this runs AFTER the receipt has been sent and every failure is swallowed
+// into a log line. The page's answer is settled before this is called.
+//
+// What is sent is what Todd already owns: the stored name, its Dropbox path,
+// its size and the time. No passcode, no token, no app secret — the relay
+// exists so the page never holds a credential, and a webhook is another place
+// one could leak to.
+//
+// NOTIFY_SECRET is optional and signs the body, so the receiving end can tell
+// a real notification from anyone who guessed the URL. Without it the endpoint
+// has to trust its own obscurity, which is a choice, not a default.
+export async function notify(payload) {
+  if (!NOTIFY_URL) return { sent: false, reason: "no NOTIFY_URL" };
+  const body = JSON.stringify(payload);
+  const headers = { "Content-Type": "application/json" };
+  if (NOTIFY_SECRET) {
+    headers["X-Relay-Signature"] =
+      "sha256=" + crypto.createHmac("sha256", NOTIFY_SECRET).update(body).digest("hex");
+  }
+  try {
+    const r = await fetch(NOTIFY_URL, {
+      method: "POST", headers, body, signal: AbortSignal.timeout(NOTIFY_TIMEOUT_MS),
+    });
+    if (!r.ok) console.error("notify " + r.status);
+    return { sent: true, ok: r.ok, status: r.status };
+  } catch (e) {
+    console.error("notify " + String(e && e.message || e));
+    return { sent: true, ok: false, error: "notify" };
+  }
 }
 
 // ---- HTTP ---------------------------------------------------------------
@@ -180,13 +221,32 @@ export const server = http.createServer(async (req, res) => {
   catch (e) { send(res, e.code === 413 ? 413 : 400, { ok: false, error: e.code === 413 ? "too-large" : "body" }); return; }
   if (!bytes.length) { send(res, 400, { ok: false, error: "empty" }); return; }
 
+  let receipt;
   try {
     const r = await putInDropbox(name, bytes);
-    send(res, 200, { ok: true, name: r.name, path: r.path_display, size: r.size ?? bytes.length });
+    receipt = { ok: true, name: r.name, path: r.path_display, size: r.size ?? bytes.length };
+    send(res, 200, receipt);
   } catch (e) {
     console.error(String(e && e.message || e));
     send(res, 502, { ok: false, error: /dropbox-auth/.test(String(e)) ? "dropbox-auth" : "dropbox" });
+    return;
   }
+
+  // The receipt is already on the wire. The notification runs OUTSIDE the
+  // upload's try, so nothing it ever does — today or after some later edit —
+  // can reach the catch above and try to send a 502 down a response that has
+  // already ended. That second send would throw inside an async handler,
+  // which on a live service is a crash, not a log line.
+  // The .catch is not belt-and-braces over notify's own try: it covers the
+  // lines BEFORE that try (building the body, signing it), where a throw would
+  // otherwise reject this handler's promise and take the process down.
+  await notify({
+    event: "upload",
+    name: receipt.name,
+    path: receipt.path,
+    size: receipt.size,
+    at: new Date().toISOString(),
+  }).catch((e) => console.error("notify " + String(e && e.message || e)));
 });
 
 if (process.argv[1] && import.meta.url.endsWith(process.argv[1].split("/").pop())) {

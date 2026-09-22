@@ -4,16 +4,28 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
+import crypto from "node:crypto";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const calls = [];
+// The notify sink: everything the relay posts to NOTIFY_URL. `notifyMode`
+// makes it misbehave on demand, because the property that matters is that a
+// broken notification cannot break an upload.
+const notified = [];
+let notifyMode = "ok";   // "ok" | "500" | "hang"
 const fake = http.createServer(async (req, res) => {
   const chunks = [];
   for await (const c of req) chunks.push(c);
   const body = Buffer.concat(chunks);
-  calls.push({ url: req.url, auth: req.headers.authorization, arg: req.headers["dropbox-api-arg"], len: body.length,
-               form: req.headers["content-type"] === "application/x-www-form-urlencoded" ? body.toString() : null });
+  // `calls` records DROPBOX traffic. /notify is not Dropbox, and it arrives
+  // after the upload's receipt has already been sent — so counting it here
+  // lets one test's notification land inside a later test's window and be
+  // read as a Dropbox call that never happened. It records into `notified`.
+  if (req.url !== "/notify") {
+    calls.push({ url: req.url, auth: req.headers.authorization, arg: req.headers["dropbox-api-arg"], len: body.length,
+                 form: req.headers["content-type"] === "application/x-www-form-urlencoded" ? body.toString() : null });
+  }
   const j = (o) => { res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify(o)); };
   if (req.url === "/oauth2/token") {
     if (/grant_type=authorization_code/.test(body.toString())) {
@@ -33,6 +45,12 @@ const fake = http.createServer(async (req, res) => {
   }
   if (req.url === "/2/files/upload_session/start") return j({ session_id: "S1" });
   if (req.url === "/2/files/upload_session/append_v2") return j({});
+  if (req.url === "/notify") {
+    notified.push({ body: body.toString(), sig: req.headers["x-relay-signature"], ct: req.headers["content-type"] });
+    if (notifyMode === "hang") return;                 // never answers
+    if (notifyMode === "500") { res.writeHead(500); return res.end("no"); }
+    return j({ ok: true });
+  }
   if (req.url === "/2/files/upload_session/finish") {
     const a = JSON.parse(req.headers["dropbox-api-arg"]);
     return j({ name: a.commit.path.split("/").pop(), path_display: a.commit.path, size: 0 });
@@ -47,7 +65,8 @@ const relay = spawn(process.execPath, [fileURLToPath(new URL("./server.mjs", imp
   env: { ...process.env, PORT: String(PORT), DROPBOX_APP_KEY: "k", DROPBOX_APP_SECRET: "s",
          DROPBOX_REFRESH_TOKEN: "r", RELAY_PASSCODE: "open-sesame", ALLOWED_ORIGIN: "https://twillis45.github.io",
          DROPBOX_FOLDER: "/Cory outreach recordings/", DROPBOX_OAUTH_BASE: FAKE, DROPBOX_CONTENT_BASE: FAKE,
-         CHUNK_BYTES: "1024", MAX_BYTES: "4096" },
+         CHUNK_BYTES: "1024", MAX_BYTES: "4096",
+         NOTIFY_URL: FAKE + "/notify", NOTIFY_SECRET: "sign-me", NOTIFY_TIMEOUT_MS: "400" },
   stdio: ["ignore", "pipe", "pipe"],
 });
 const RELAY = "http://127.0.0.1:" + PORT;
@@ -144,6 +163,75 @@ test("the exchange turns a code into a refresh token, behind the passcode", asyn
   const good = await (await fetch(RELAY + "/exchange?k=open-sesame&code=GOOD")).json();
   assert.equal(good.ok, true);
   assert.match(good.refresh_token, /^RT-x{60}$/);
+});
+
+// Wait for the notification, which is sent AFTER the receipt, so `await post()`
+// resolves before it lands.
+const settle = async (n = 1, ms = 3000) => {
+  const until = Date.now() + ms;
+  while (notified.length < n && Date.now() < until) await new Promise((r) => setTimeout(r, 25));
+  return notified.length >= n;
+};
+
+test("a landed file is announced, signed, with nothing secret in it", async () => {
+  notifyMode = "ok";
+  notified.length = 0;
+  const r = await post({ body: Buffer.from("a zip") });
+  assert.equal(r.status, 200);
+
+  assert.ok(await settle(1), "nothing was posted to NOTIFY_URL");
+  const [n] = notified;
+  assert.equal(n.ct, "application/json");
+  const p = JSON.parse(n.body);
+  assert.equal(p.event, "upload");
+  assert.match(p.path, /^\/Cory outreach recordings\/\d{8}T\d{6}Z-cory-outreach-answers\.zip$/);
+  assert.equal(p.size, 5);
+  assert.ok(!Number.isNaN(Date.parse(p.at)), "the timestamp does not parse");
+
+  // Signed with NOTIFY_SECRET, so the far end can tell this from anyone who
+  // guessed the URL.
+  const expect = "sha256=" + crypto.createHmac("sha256", "sign-me").update(n.body).digest("hex");
+  assert.equal(n.sig, expect);
+
+  // NOTHING SECRET. The relay exists so the page never holds a credential,
+  // and a webhook is one more place one could leak to.
+  for (const secret of ["open-sesame", "sign-me", "DROPBOX", "Bearer", "AT-1", "refresh"]) {
+    assert.ok(!n.body.includes(secret), `the notification carried ${secret}`);
+  }
+});
+
+test("a notification that 500s does not change what the page was told", async () => {
+  notifyMode = "500";
+  notified.length = 0;
+  const r = await post({ body: Buffer.from("a zip") });
+  assert.equal(r.status, 200, "a failing webhook changed the upload's answer");
+  assert.equal((await r.json()).ok, true);
+  assert.ok(await settle(1), "the notification was never attempted");
+});
+
+test("a notification that HANGS does not hold the upload, and times out", async () => {
+  // The one that would actually hurt: an endpoint that accepts the connection
+  // and never answers. The receipt is sent before notify is called, so the
+  // page is already done; the timeout is what stops the handler leaking.
+  notifyMode = "hang";
+  notified.length = 0;
+  const t0 = Date.now();
+  const r = await post({ body: Buffer.from("a zip") });
+  const waited = Date.now() - t0;
+  assert.equal(r.status, 200);
+  assert.ok(waited < 2000, `the page waited ${waited}ms on a hanging webhook`);
+  assert.ok(await settle(1), "the notification was never attempted");
+  notifyMode = "ok";
+});
+
+test("with no NOTIFY_URL the relay posts nothing at all", async () => {
+  // Off by default. A live service must not start calling a new host just
+  // because it was redeployed.
+  const { notify } = await import("./server.mjs");
+  const before = notified.length;
+  const out = await notify({ event: "upload" });
+  assert.deepEqual(out, { sent: false, reason: "no NOTIFY_URL" });
+  assert.equal(notified.length, before, "something was posted with NOTIFY_URL unset");
 });
 
 test.after(() => { relay.kill(); fake.close(); });
