@@ -1436,9 +1436,12 @@
         });
       });
       typedNow.forEach(function (f) { entries.push(f); });
+      // The manifest is not an answer. What he is told he saved counts the
+      // answers, and the archive carries one more thing than that on purpose.
+      var answers = entries.length;
       entries.unshift(manifestFile(entries, empty));
       var zip = makeZip(entries);
-      return { zip: zip, entries: entries, items: items };
+      return { zip: zip, entries: entries, items: items, answers: answers };
     });
   }
   // Every question, and whether this archive answers it. Without this a file
@@ -1508,8 +1511,8 @@
     job.then(function (r) {
       keepOnPhone(r);
       errEl.className = "note";
-      errEl.textContent = "Saved one file with " + r.entries.length + " item" +
-        (r.entries.length === 1 ? "" : "s") + " in it \u2014 look in Downloads or Files for " +
+      errEl.textContent = "Saved one file with " + r.answers + " item" +
+        (r.answers === 1 ? "" : "s") + " in it \u2014 look in Downloads or Files for " +
         "cory-outreach-answers.zip, then attach it to a text or an email. Nothing has left " +
         "this device on its own.";
     }).catch(function (e) { packFailed(errEl, e); });
@@ -1525,8 +1528,8 @@
   function saveAndPoint(r, errEl, step) {
     keepOnPhone(r);
     errEl.className = "note";
-    errEl.textContent = "Saved one file with " + r.entries.length + " item" +
-      (r.entries.length === 1 ? "" : "s") + " in it. Now the tap below.";
+    errEl.textContent = "Saved one file with " + r.answers + " item" +
+      (r.answers === 1 ? "" : "s") + " in it. Now the tap below.";
     dropboxHow("The file is saved on this phone as <b>cory-outreach-answers.zip</b>, in Files " +
                "under Downloads. Open Todd\u2019s drop box, tap <b>Add files</b>, pick the zip. " +
                "No account, any size.");
