@@ -321,6 +321,7 @@
     <div class="ledger">
       <div class="fig"><span class="n" id="fig-answered">0/20</span><span class="label">Answered</span></div>
       <div class="fig"><span class="n" id="fig-clips">0</span><span class="label">Recordings</span></div>
+      <div class="fig"><span class="n" id="fig-missing">20</span><span class="label">No answer</span></div>
     </div>
     <p class="whisper" id="next">Start with 01, or tap any question to open it.</p>
     <p class="whisper" id="relay-state" aria-live="polite"></p>
@@ -349,6 +350,8 @@
       <b>This browser can’t record here.</b> Type your answers instead, or use your
       phone’s voice memo app and send them over. The questions are the same.
     </div>
+    <div class="warn" id="lostwarn" hidden></div>
+    <div class="warn" id="coverage" hidden></div>
     <div class="warn" id="restorefail" hidden>
       <b>Couldn’t read what you recorded before.</b> Don’t record over it yet &mdash;
       text me first, it may still be there.
@@ -577,6 +580,30 @@
   // clip he will lose without knowing, which is the whole failure this page
   // exists to avoid.
   var DB = "ngw-voice-brief", STORE = "clips", dbp = null;
+
+  // ---- the ledger of what did NOT persist ---------------------------------
+  // Until September 29, 2026 a failed write was announced once, on one card,
+  // and then nothing anywhere remembered it. On the next load the clip was
+  // simply absent — and `restorefail` below cannot speak for it, because that
+  // fires on a record that EXISTS with no blob, and a write that never landed
+  // leaves no record at all. Thirteen of Cory's twenty answers reached Dropbox
+  // on September 28, 2026 and the page reported "13 answers still to send" as
+  // though thirteen were the whole job.
+  //
+  // So the failure is written down at the moment it happens, in the one store
+  // that is likely to still work: a question id is a few bytes, and what
+  // failed was megabytes.
+  var LOST = "ngw-unstored";
+  function lostRead() {
+    try { var v = JSON.parse(localStorage.getItem(LOST) || "[]"); return v.length ? v : []; }
+    catch (e) { return []; }
+  }
+  function lostWrite(a) { try { localStorage.setItem(LOST, JSON.stringify(a)); } catch (e) {} }
+  function lostAdd(id) { var a = lostRead(); if (a.indexOf(id) < 0) { a.push(id); lostWrite(a); } }
+  function lostDrop(id) {
+    var a = lostRead(), b = a.filter(function (x) { return x !== id; });
+    if (b.length !== a.length) lostWrite(b);
+  }
   function db() {
     if (dbp) return dbp;
     dbp = new Promise(function (res, rej) {
@@ -624,6 +651,9 @@
 
   // ---- render -------------------------------------------------------------
   var host = document.getElementById("questions"), current = null, cards = {};
+  // Recordings whose question this build no longer asks. Kept, never deleted,
+  // and packed with everything else.
+  var orphans = [];
 
   function el(tag, cls, html) {
     var n = document.createElement(tag);
@@ -703,7 +733,7 @@
 
     (group || host).appendChild(card);
 
-    cards[q.id] = { q: q, card: card, det: det, qstate: qstate,
+    cards[q.id] = { q: q, n: i + 1, card: card, det: det, qstate: qstate,
                     mic: mic, time: time, level: level,
                     keepon: keepon, typeBtn: typeBtn, typed: typed,
                     ta: ta, state: state,
@@ -1111,7 +1141,7 @@
           say(c, "That was a tap, not a take \u2014 nothing kept. Tap Record, talk, then tap Stop.", "note");
           return;
         }
-        var clip = { blob: blob, type: type, ms: ms,
+        var clip = { blob: blob, type: type, ms: ms, at: Date.now(),
                      silent: meterRan && !sawSound && ms > 1500, peak: peak };
         var added = addClip(id, clip);
         if (clip.silent) {
@@ -1119,8 +1149,15 @@
                  "It is saved, but there is nothing on it. Check your input device, or " +
                  "use the typing box on this question instead.");
         }
-        put(added.key, clip).catch(function () {
+        put(added.key, clip).then(function () {
+          lostDrop(id);
+          lostBanner();
+        }, function () {
           // The card already looks answered; it must not look SAFE as well.
+          // And the warning has to outlive this tab, because the reload is
+          // where the answer disappears without trace.
+          lostAdd(id);
+          lostBanner();
           say(c, "Saved in this tab only \u2014 your phone wouldn\u2019t store it. Send this one now, before you close the page.");
         });
       };
@@ -1255,7 +1292,7 @@
 
   // entries: [{ name, bytes: Uint8Array }]
   function makeZip(entries) {
-    var now = new Date(), parts = [], central = [], offset = 0;
+    var packedAt = new Date(), parts = [], central = [], offset = 0;
     var enc = function (str) {
       if (window.TextEncoder) return new TextEncoder().encode(str);
       var out = [];
@@ -1263,6 +1300,12 @@
       return new Uint8Array(out);
     };
     entries.forEach(function (e) {
+      // Each entry carries its own moment. Everything used to read pack time,
+      // which is how an archive of thirteen answers recorded over an evening
+      // came out with one identical timestamp and could not say when any of
+      // them was made. Clips stored before this change have no `at`; they fall
+      // back to pack time rather than inventing one.
+      var now = e.at ? new Date(e.at) : packedAt;
       var name = enc(e.name), crc = CRC(e.bytes), len = e.bytes.length;
       var lh = new DataView(new ArrayBuffer(30));
       lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true);
@@ -1364,19 +1407,88 @@
     var jobs = items.map(function (it) {
       return bytesOf(it.rec.clip.blob).then(function (bytes) {
         var base = baseName(it.id, it.rec);
-        var out = [{ name: base + "." + extFor(bareType(it.rec.clip.type)), bytes: bytes }];
+        var out = [{ name: base + "." + extFor(bareType(it.rec.clip.type)),
+                     bytes: bytes, at: it.rec.clip.at, id: it.id }];
         return out;
       });
     });
+    // Recordings for questions this build dropped travel too. They were being
+    // deleted on load before September 29, 2026; now they are carried, named
+    // for the question they were answers to.
+    var orphanJobs = orphans.map(function (o) {
+      return bytesOf(o.clip.blob).then(function (bytes) {
+        var part = String(o.key).split("::")[1] || "1";
+        return [{ name: "cory-" + o.id + "-part" + part + "." + extFor(bareType(o.clip.type)),
+                  bytes: bytes, at: o.clip.at, id: o.id }];
+      });
+    });
 
-    return Promise.all(jobs).then(function (groups) {
-      var entries = [];
-      groups.forEach(function (g) { g.forEach(function (e) { if (e.bytes.length) entries.push(e); }); });
+    return Promise.all(jobs.concat(orphanJobs)).then(function (groups) {
+      var entries = [], empty = [];
+      groups.forEach(function (g) {
+        g.forEach(function (e) {
+          // WAS: `if (e.bytes.length) entries.push(e)` — a clip that read as
+          // zero bytes vanished from the archive with nothing said, while the
+          // "Packing N answers" line had already counted it. A drop is now
+          // named in the manifest rather than swallowed.
+          if (e.bytes.length) entries.push(e);
+          else empty.push(e.id);
+        });
+      });
       typedNow.forEach(function (f) { entries.push(f); });
+      entries.unshift(manifestFile(entries, empty));
       var zip = makeZip(entries);
       return { zip: zip, entries: entries, items: items };
     });
   }
+  // Every question, and whether this archive answers it. Without this a file
+  // of thirteen answers and a file of twenty are indistinguishable until
+  // somebody opens both and counts, which is exactly how seven answers went
+  // missing on September 28, 2026 without anyone noticing for a day.
+  function manifestFile(entries, empty) {
+    var have = {};
+    entries.forEach(function (e) { if (e.id) have[e.id] = true; });
+    var L = [];
+    L.push("WHAT IS IN THIS FILE");
+    L.push("Packed " + new Date().toISOString() + " from Todd's intake page.");
+    L.push("");
+    var answered = 0, missing = [];
+    QUESTIONS.forEach(function (q, i) {
+      var c = cards[q.id];
+      var rec = c ? c.clips.length : 0;
+      var typed = c ? !!typedText(q.id) : false;
+      var mark = rec || typed ? "ANSWERED" : "NO ANSWER";
+      if (rec || typed) answered += 1; else missing.push((i + 1 < 10 ? "0" : "") + (i + 1));
+      L.push(mark + "  " + ((i + 1 < 10 ? "0" : "") + (i + 1)) + "  " + q.id +
+             "  " + (rec ? rec + " recording" + (rec === 1 ? "" : "s") : "") +
+             (typed ? (rec ? " + typed" : "typed") : "") );
+      L.push("          " + q.ask.replace(/<[^>]+>/g, ""));
+    });
+    L.push("");
+    L.push(answered + " of " + QUESTIONS.length + " questions answered.");
+    if (missing.length) L.push("NO ANSWER IN THIS FILE: " + missing.join(", ") + ".");
+    if (orphans.length) {
+      L.push("");
+      L.push("Also carried: " + orphans.length + " recording(s) for questions this page no " +
+             "longer asks. They are kept rather than deleted.");
+    }
+    if (empty && empty.length) {
+      L.push("");
+      L.push("READ AS EMPTY AND NOT PACKED: " + empty.join(", ") +
+             ". Those recordings could not be read back. Do not treat them as sent.");
+    }
+    var lost = lostRead();
+    if (lost.length) {
+      L.push("");
+      L.push("THIS DEVICE FAILED TO STORE: " + lost.join(", ") +
+             ". Those answers were recorded and the browser refused to keep them.");
+    }
+    var enc2 = window.TextEncoder ? new TextEncoder() : null;
+    var body = L.join("\n") + "\n";
+    return { name: "WHAT-IS-IN-THIS-FILE.txt",
+             bytes: enc2 ? enc2.encode(body) : new Uint8Array(0) };
+  }
+
   // Save the zip on the phone and remember that on each clip.
   function keepOnPhone(r) {
     saveBlob(r.zip, "cory-outreach-answers.zip");
@@ -1617,6 +1729,42 @@
     } catch (e) { return false; }
   })();
 
+  // A warning that outlives the tab. `restorefail` cannot do this job: it
+  // fires on a stored record with no blob, and the failure that loses answers
+  // leaves no record at all.
+  function lostBanner() {
+    // NO filtering here, deliberately. This reads the ledger and renders it.
+    // Entries leave it in exactly one place — lostDrop, called when a write to
+    // IndexedDB has actually succeeded, either on a fresh recording or on a
+    // clip coming back out of storage on load. A clip being present in `cards`
+    // is NOT that: it is in memory, which is the state this whole ledger
+    // exists to distinguish from stored.
+    var live = lostRead();
+    var el = document.getElementById("lostwarn");
+    if (!live.length) { el.hidden = true; return; }
+    var names = live.map(function (id) {
+      var c = cards[id];
+      return c ? (c.n < 10 ? "0" : "") + c.n : id;
+    });
+    el.innerHTML = "<b>This device failed to store " + live.length + " answer" +
+      (live.length === 1 ? "" : "s") + " \u2014 question " + names.join(", ") + ".</b> " +
+      "They were recorded and the browser refused to keep them, so they are NOT on this page " +
+      "any more and they are NOT in anything you have sent. Record " +
+      (live.length === 1 ? "it" : "them") + " again and send straight away, or type the answer" +
+      (live.length === 1 ? "" : "s") + " instead.";
+    el.hidden = false;
+  }
+
+  function orphanBanner() {
+    var el = document.getElementById("restorefail");
+    if (!orphans.length || !el.hidden) return;
+    // Kept deliberately quiet: nothing is lost, it just travels under an old name.
+    var n = document.getElementById("next");
+    if (n) n.textContent = orphans.length + " recording" + (orphans.length === 1 ? "" : "s") +
+      " for questions this page no longer asks " + (orphans.length === 1 ? "is" : "are") +
+      " still here, and will be included when you send.";
+  }
+
   // ---- tally --------------------------------------------------------------
   function tally() {
     var ids = Object.keys(cards);
@@ -1627,6 +1775,12 @@
     var total = ids.reduce(function (n, i) { return n + cards[i].clips.length; }, 0);
     document.getElementById("fig-answered").textContent = answered + "/" + ids.length;
     document.getElementById("fig-clips").textContent = String(total);
+    // The count that was missing. "13/20 Answered" reads as progress; "7 No
+    // answer" reads as a hole, and a hole is what it was.
+    var missing = ids.length - answered;
+    var mEl = document.getElementById("fig-missing");
+    mEl.textContent = String(missing);
+    mEl.parentNode.className = "fig" + (missing ? " crit" : "");
     // A closed row says what it holds, in the color reserved for what is
     // confirmed: the device has it.
     ids.forEach(function (i) {
@@ -1683,6 +1837,18 @@
     dl.textContent = (canShareFiles ? "Save them all as one file instead"
                                     : "Save all " + bundleCount + " as one file to text me")
                      + (size ? "  \u00b7  " + humanSize(size) : "");
+    // What leaves this page says how much of the job it is. A file holding
+    // thirteen of twenty answers used to be indistinguishable from a complete
+    // one until somebody opened it and counted.
+    var cov = document.getElementById("coverage");
+    if (cov) {
+      if (missing > 0 && (total || typedCount)) {
+        cov.innerHTML = "<b>" + answered + " of " + ids.length + " questions answered.</b> " +
+          missing + " still ha" + (missing === 1 ? "s" : "ve") + " nothing \u2014 whatever you send " +
+          "now will be missing " + (missing === 1 ? "that one" : "those") + ", and the file says so inside.";
+        cov.hidden = false;
+      } else { cov.hidden = true; }
+    }
 
     // A plain text message caps out around a megabyte on most carriers, while
     // iMessage and Google Messages carry far more. He should know which side
@@ -1720,15 +1886,26 @@
         return;
       }
       var id = key.split("::")[0];
-      if (!cards[id]) { del_(key); return; }       // a question this build no longer has
-      if (saved[key] && saved[key].blob) addClip(id, saved[key], key);
+      if (!cards[id]) {
+        // WAS: del_(key). A question leaving the build DESTROYED his recording,
+        // silently, on the next load. q21 and q22 left this page in commit
+        // f1dc06b and anything recorded against them went with them.
+        // The recording is still a recording. It is kept, it is packed under
+        // its original name, and the page says it is there.
+        if (saved[key] && saved[key].blob) orphans.push({ key: key, id: id, clip: saved[key] });
+        return;
+      }
+      if (saved[key] && saved[key].blob) { addClip(id, saved[key], key); lostDrop(id); }
       else document.getElementById("restorefail").hidden = false;
     });
     tally();
     spotlight();
+    lostBanner();
+    orphanBanner();
   }).catch(function () {
     document.getElementById("restorefail").hidden = false;
     tally();
+    lostBanner();
   });
 
   tally();
