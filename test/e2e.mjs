@@ -560,7 +560,7 @@ await tzip.saveAs(tzPath);
 const tb = fs.readFileSync(tzPath);
 const te = tb.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
 const tcount = tb.readUInt16LE(te + 10);
-ok(tcount === 1, `the bundle carries the typed answer (${tcount} entry)`);
+ok(tcount === 2, `the bundle carries the typed answer and the manifest (${tcount} entries)`);
 ok(tb.includes(Buffer.from(ANSWER, 'utf8')), 'and his actual words are inside it');
 ok(tb.includes(Buffer.from('cory-q1-typed.txt', 'utf8')),
    'named so it is obvious which question it answers');
@@ -607,7 +607,7 @@ const eocd = zb.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
 ok(eocd > 0, 'the file ends with a real end-of-central-directory record');
 const count = zb.readUInt16LE(eocd + 10);
 const cdOff = zb.readUInt32LE(eocd + 16);
-ok(count === 2, `it holds the two recordings (${count} entries)`);
+ok(count === 3, `it holds the two recordings and the manifest (${count} entries)`);
 const zipNames = [];
 let o = cdOff;
 for (let i = 0; i < count; i++) {
@@ -618,9 +618,22 @@ for (let i = 0; i < count; i++) {
 }
 ok(zipNames.every((n) => !n.endsWith('.m4a')),
    `Chrome never ships Opus inside an .m4a (${zipNames.join(', ')})`);
-ok(zipNames.filter((n) => n.endsWith('.m4a') || n.endsWith('.webm')).length === 2 &&
-   zipNames.filter((n) => n.endsWith('.txt')).length === 0,
-   `the audio travels and nothing else is invented beside it (${zipNames.join(', ')})`);
+// The guard this replaces asserted ZERO .txt files beside the audio, and its
+// subject is commit 05bf4e8: the page records, it does not transcribe. That
+// intent is unchanged and is asserted below by name. What changed on
+// September 29, 2026 is that every archive now carries one describing file,
+// so that a partial send cannot look complete — a file of thirteen answers and
+// a file of twenty were otherwise indistinguishable until somebody opened both
+// and counted. A manifest is not invented speech. Asserting "no .txt" would
+// now forbid the thing that makes a loss visible, so the assertion names what
+// is actually forbidden instead.
+ok(zipNames.filter((n) => n.endsWith('.m4a') || n.endsWith('.webm')).length === 2,
+   `the audio travels (${zipNames.join(', ')})`);
+ok(zipNames.filter((n) => n.endsWith('.txt')).length === 1 &&
+   zipNames.includes('WHAT-IS-IN-THIS-FILE.txt'),
+   `exactly one describing file beside it, and it is the manifest (${zipNames.join(', ')})`);
+ok(!zipNames.some((n) => /transcript|-said|words|text-of/i.test(n)),
+   'and nothing shaped like a transcript — the page records, it does not transcribe');
 // Every stored entry's CRC must match its bytes, or the archive opens empty.
 let crcOk = true;
 o = cdOff;
@@ -719,11 +732,24 @@ await op.evaluate(() => new Promise((res) => {
 await op.reload({ waitUntil: 'load' });
 await op.waitForTimeout(1300);
 ok(await op.locator('#restorefail').isHidden(), 'it is not reported as a broken recording');
-const gone = await op.evaluate(() => new Promise((res) => {
+// REVERSED, September 29, 2026. This asserted the clip was DELETED — "cleared
+// rather than reported forever" — and the concern behind that is real: a clip
+// with no card has no delete button and would otherwise sit there for good.
+//
+// But deleting it is not clearing clutter, it is destroying an answer. q21 and
+// q22 left this page in f1dc06b, so the path is not hypothetical: anything
+// recorded against them was erased on the next load, silently, with no way
+// back. That is the same class of loss as the seven answers of September 28.
+//
+// Both halves of the original intent are kept. It is still not reported as a
+// broken recording, asserted above. It is no longer invisible: the page says
+// it is there and the manifest names it. What changed is that his recording
+// survives a question being retired.
+const kept = await op.evaluate(() => new Promise((res) => {
   const r = indexedDB.open('ngw-voice-brief', 1);
-  r.onsuccess = () => { const g = r.result.transaction('clips').objectStore('clips').get('q99::1'); g.onsuccess = () => res(g.result === undefined); };
+  r.onsuccess = () => { const g = r.result.transaction('clips').objectStore('clips').get('q99::1'); g.onsuccess = () => res(g.result !== undefined); };
 }));
-ok(gone, 'and it is cleared rather than reported forever');
+ok(kept, 'and it is KEPT, because deleting it destroys an answer nobody can get back');
 await orph.close();
 
 console.log('\n=== the live button keeps its label ===');
@@ -1063,6 +1089,117 @@ await qp.waitForTimeout(900);
 ok((await qp.locator('article.q').first().locator('.clip').count()) === 1,
    'a silent recording still files — the meter reports, it does not gate');
 await quiet.close();
+
+console.log('\n=== a write that fails is never silent ===');
+// The incident of September 28, 2026: thirteen of twenty answers reached
+// Dropbox, the page read "13 answers still to send", and nothing anywhere said
+// seven questions had nothing. The page's storage comment claims failures are
+// "surfaced, never swallowed"; they were surfaced once, on one card, and every
+// later signal presented the remnant as the whole job.
+//
+// Sabotage the write for q1 only, and assert the loss is impossible to miss
+// afterwards. This is the reproduction that found the defect, kept.
+const lossBrowser = await chromium.launch({
+  executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+  args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream',
+         '--use-file-for-fake-audio-capture=' + TONE],
+});
+const lossCtx = await lossBrowser.newContext({ permissions: ['microphone'],
+  viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
+const lossPage = await lossCtx.newPage();
+await lossPage.goto('http://localhost:8731/', { waitUntil: 'load' });
+await lossPage.evaluate(() => {
+  const real = IDBObjectStore.prototype.put;
+  IDBObjectStore.prototype.put = function (v, k) {
+    if (typeof k === 'string' && k.startsWith('q1::')) {
+      const r = real.call(this, v, k);
+      try { this.transaction.abort(); } catch (e) {}   // what a full quota looks like
+      return r;
+    }
+    return real.call(this, v, k);
+  };
+});
+const lossRecord = async (id) => {
+  const mic = lossPage.locator('#mic-' + id);
+  if (!(await mic.isVisible())) {
+    await lossPage.locator('article.q:has(#mic-' + id + ') summary').click();
+    await lossPage.waitForTimeout(60);
+  }
+  await mic.click(); await lossPage.waitForTimeout(1100);
+  await lossPage.locator('#mic-' + id).click(); await lossPage.waitForTimeout(900);
+};
+await lossRecord('q1');
+await lossRecord('q2');
+ok(/Saved in this tab only/.test(await lossPage.locator('article.q').first().textContent()),
+   'the card says the write did not land');
+await lossPage.reload({ waitUntil: 'load' });
+await lossPage.waitForTimeout(1600);
+
+// The heart of it. Before this fix the reload was where the answer vanished
+// without trace: restorefail fires on a stored record with no blob, and a
+// write that never landed leaves no record for it to fire on.
+ok(await lossPage.locator('#lostwarn').isVisible(),
+   'the failure outlives the tab and is on the page after a reload');
+ok(/question 01/.test(await lossPage.locator('#lostwarn').textContent()),
+   'and it names the question by the number he sees');
+ok(/NOT in anything you have sent/.test(await lossPage.locator('#lostwarn').textContent()),
+   'and says the answer is not in anything already sent');
+ok((await lossPage.locator('#fig-missing').textContent()) === String(N - 1),
+   'the ledger counts what has NO answer, not only what it holds');
+ok(await lossPage.locator('#coverage').isVisible() &&
+   /1 of 20 questions answered/.test(await lossPage.locator('#coverage').textContent()),
+   'and the page states coverage where the sending happens');
+
+// The archive has to carry the same news, because the file outlives the page.
+const lossDl = lossPage.waitForEvent('download');
+await lossPage.locator('#downloadall').click();
+const lossZipPath = path.join(os.tmpdir(), 'ngw-loss.zip');
+await (await lossDl).saveAs(lossZipPath);
+const lossZip = fs.readFileSync(lossZipPath).toString('latin1');
+ok(lossZip.includes('WHAT-IS-IN-THIS-FILE.txt'), 'every archive carries a manifest');
+ok(/NO ANSWER IN THIS FILE/.test(lossZip),
+   'and the manifest names the questions the file does not answer');
+ok(/THIS DEVICE FAILED TO STORE/.test(lossZip),
+   'and carries the failed write forward, so the file is readable without the page');
+ok(!/cory-q1-part1\./.test(lossZip), 'the unstored answer is genuinely absent, not quietly half-there');
+ok(/cory-q2-part1\./.test(lossZip), 'and the one that stored is present');
+
+console.log('\n=== a question leaving the build does not destroy an answer ===');
+// The restore loop called del_ on any clip whose question this build no longer
+// has. q21 and q22 left this page in f1dc06b, so that path was live, not
+// hypothetical: the recording was deleted on the next load, silently.
+await lossPage.evaluate(async () => {
+  const d = await new Promise((res, rej) => {
+    const r = indexedDB.open('ngw-voice-brief', 1);
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  });
+  const blob = new Blob([new Uint8Array(2048).fill(66)], { type: 'audio/webm' });
+  await new Promise((res, rej) => {
+    const tx = d.transaction('clips', 'readwrite');
+    tx.objectStore('clips').put({ blob, type: 'audio/webm', ms: 4000, at: Date.now() }, 'q21::1');
+    tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+  });
+});
+await lossPage.reload({ waitUntil: 'load' });
+await lossPage.waitForTimeout(1600);
+const orphanKept = await lossPage.evaluate(async () => {
+  const d = await new Promise((res) => {
+    const r = indexedDB.open('ngw-voice-brief', 1); r.onsuccess = () => res(r.result);
+  });
+  return await new Promise((res) => {
+    const tx = d.transaction('clips', 'readonly');
+    const k = tx.objectStore('clips').getAllKeys();
+    tx.oncomplete = () => res(k.result.includes('q21::1'));
+  });
+});
+ok(orphanKept, 'a recording for a question this build dropped is KEPT, not deleted');
+const orphanDl = lossPage.waitForEvent('download');
+await lossPage.locator('#downloadall').click();
+const orphanZipPath = path.join(os.tmpdir(), 'ngw-orphan.zip');
+await (await orphanDl).saveAs(orphanZipPath);
+ok(/cory-q21-part1\./.test(fs.readFileSync(orphanZipPath).toString('latin1')),
+   'and it travels in the archive under its own name');
+await lossBrowser.close();
 
 console.log('\n=== console ===');
 const real = errors.filter((e) => !/ERR_CERT_AUTHORITY_INVALID/.test(e));
